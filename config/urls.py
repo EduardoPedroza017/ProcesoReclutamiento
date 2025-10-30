@@ -26,9 +26,7 @@ urlpatterns = [
     path('api/evaluations/', include('apps.evaluations.urls')),
     path('api/notifications/', include('apps.notifications.urls')),
     path('api/documents/', include('apps.documents.urls')),
-    path('api/', include('apps.profiles.urls')),
-    path('api/', include('apps.profiles.urls')),
-    path('api/', include('apps.candidates.urls')),
+    path('api/ai-services/', include('apps.ai_services.urls')),
 ]
 
 # Servir archivos media en desarrollo

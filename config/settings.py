@@ -29,7 +29,7 @@ INSTALLED_APPS = [
     'apps.profiles',
     'django_filters',
     'apps.candidates',
-    'apps.ai_services',
+    'apps.ai_services.apps.AiServicesConfig',
     'apps.evaluations',
     'apps.notifications',
     'apps.documents',

@@ -1,5 +1,5 @@
 # Crear el archivo docker-compose.yml
-version: '3.8'
+#version: '3.8'
 
 services:
   # Base de datos PostgreSQL
