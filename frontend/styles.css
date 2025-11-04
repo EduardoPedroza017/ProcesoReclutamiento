@@ -300,3 +300,110 @@
     background-color: #eff6ff;
     border-color: #3b82f6;
 }
+
+/* Estilos adicionales para las nuevas vistas */
+.filter-section {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.status-badge {
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.status-active {
+    background-color: #dcfce7;
+    color: #16a34a;
+}
+
+.status-paused {
+    background-color: #fef3c7;
+    color: #d97706;
+}
+
+.status-completed {
+    background-color: #dbeafe;
+    color: #2563eb;
+}
+
+.priority-high {
+    background-color: #fee2e2;
+    color: #dc2626;
+}
+
+.priority-medium {
+    background-color: #fef3c7;
+    color: #d97706;
+}
+
+.priority-low {
+    background-color: #f0f9ff;
+    color: #0284c7;
+}
+
+/* Card grids mejoradas */
+.grid-auto-fit {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.grid-auto-fill {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+/* Efectos de documento */
+.document-icon {
+    transition: transform 0.2s ease;
+}
+
+.document-item:hover .document-icon {
+    transform: scale(1.1);
+}
+
+/* Progress bars mejoradas */
+.progress-container {
+    background: #e5e7eb;
+    border-radius: 9999px;
+    overflow: hidden;
+}
+
+.progress-bar-animated {
+    background: linear-gradient(90deg, #3b82f6, #1d4ed8, #3b82f6);
+    background-size: 200% 100%;
+    animation: progress-shimmer 2s linear infinite;
+}
+
+@keyframes progress-shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+/* Team member cards */
+.team-card {
+    border-left: 4px solid transparent;
+    transition: border-color 0.3s ease;
+}
+
+.team-card:hover {
+    border-left-color: #3b82f6;
+}
+
+.team-active {
+    border-left-color: #10b981;
+}
+
+.team-away {
+    border-left-color: #f59e0b;
+}
+
+.team-offline {
+    border-left-color: #6b7280;
+}
