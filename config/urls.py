@@ -27,6 +27,7 @@ urlpatterns = [
     path('api/notifications/', include('apps.notifications.urls')),
     path('api/documents/', include('apps.documents.urls')),
     path('api/ai-services/', include('apps.ai_services.urls')),
+    path('api/director/', include('apps.accounts.director_urls')),
 ]
 
 
