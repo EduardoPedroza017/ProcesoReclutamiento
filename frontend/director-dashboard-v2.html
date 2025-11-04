@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Director RH - Sistema de Reclutamiento</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 font-sans antialiased">
+    <div id="app" x-data="directorApp()" x-init="init()" class="min-h-screen">
+        <!-- Loading Overlay -->
+        <div x-show="loading" class="fixed inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50">
+            <div class="text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+                <p class="text-gray-600">Cargando dashboard...</p>
+            </div>
+        </div>
+
+        <!-- Header -->
+        <header class="bg-white shadow-sm border-b border-gray-200 relative z-40">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <!-- Logo y Título -->
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center shadow-lg">
+                                <i class="fas fa-users text-white text-lg"></i>
+                            </div>
+                        </div>
+                        <div class="ml-4">
+                            <h1 class="text-xl font-bold text-gray-900">Sistema de Reclutamiento</h1>
+                            <p class="text-sm text-primary-600 font-medium">Panel Directivo</p>
+                        </div>
+                    </div>
+
+                    <!-- Search Bar -->
+                    <div class="hidden md:block flex-1 max-w-lg mx-8">
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-search text-gray-400"></i>
+                            </div>
+                            <input type="text" 
+                                   class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                   placeholder="Buscar candidatos, procesos..."
+                                   x-model="searchQuery"
+                                   @input="handleSearch()">
+                        </div>
+                    </div>
+
+                    <!-- Usuario y notificaciones -->
+                    <div class="flex items-center space-x-4">
+                        <!-- Notificaciones -->
+                        <div class="relative" x-data="{ open: false }">
+                            <button @click="open = !open" 
+                                    class="p-2 rounded-full text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors">
+                                <div class="relative">
+                                    <i class="fas fa-bell text-xl"></i>
+                                    <span x-show="notifications.unread > 0" 
+                                          class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center notification-dot"
+                                          x-text="notifications.unread"></span>
+                                </div>
+                            </button>
+                            
+                            <!-- Dropdown notificaciones -->
+                            <div x-show="open" @click.away="open = false" x-transition
+                                 class="origin-top-right absolute right-0 mt-2 w-80 rounded-lg shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
+                                <div class="p-4">
+                                    <h3 class="text-lg font-semibold text-gray-900 mb-3">Notificaciones</h3>
+                                    <div class="space-y-3 max-h-64 overflow-y-auto custom-scrollbar">
+                                        <template x-for="notification in notifications.items" :key="notification.id">
+                                            <div class="flex items-start space-x-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer">
+                                                <div class="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
+                                                    <i :class="notification.icon" class="text-primary-600 text-sm"></i>
+                                                </div>
+                                                <div class="flex-1">
+                                                    <p class="text-sm text-gray-900" x-text="notification.message"></p>
+                                                    <p class="text-xs text-gray-500" x-text="notification.time"></p>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                    <div class="mt-3 pt-3 border-t">
+                                        <a href="#" class="text-sm text-primary-600 hover:text-primary-700">Ver todas las notificaciones</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Perfil de usuario -->
+                        <div class="relative" x-data="{ open: false }">
+                            <button @click="open = !open" 
+                                    class="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-primary-500 p-1 hover:bg-gray-50 transition-colors">
+                                <img class="h-8 w-8 rounded-full border-2 border-primary-200" 
+                                     src="https://ui-avatars.com/api/?name=Director+RH&background=3b82f6&color=fff" alt="Director RH">
+                                <span class="ml-2 text-gray-700 font-medium hidden sm:block">Director RH</span>
+                                <i class="ml-1 fas fa-chevron-down text-gray-400"></i>
+                            </button>
+                            
+                            <!-- Dropdown menú -->
+                            <div x-show="open" @click.away="open = false" x-transition
+                                 class="origin-top-right absolute right-0 mt-2 w-48 rounded-lg shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
+                                <div class="py-1">
+                                    <a href="#" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        <i class="fas fa-user mr-3"></i>Mi Perfil
+                                    </a>
+                                    <a href="#" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        <i class="fas fa-cog mr-3"></i>Configuración
+                                    </a>
+                                    <hr class="my-1">
+                                    <a href="#" @click="logout()" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        <i class="fas fa-sign-out-alt mr-3"></i>Cerrar Sesión
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Mobile menu button -->
+        <div class="lg:hidden">
+            <button @click="sidebarOpen = !sidebarOpen" 
+                    class="fixed top-4 left-4 z-50 p-2 rounded-lg bg-white shadow-lg border border-gray-200">
+                <i class="fas fa-bars text-gray-600"></i>
+            </button>
+        </div>
+
+        <div class="flex">
+            <!-- Sidebar -->
+            <nav class="bg-white w-64 min-h-screen shadow-sm border-r border-gray-200 fixed lg:relative lg:translate-x-0 transition-transform duration-300 z-30"
+                 :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'">
+                
+                <!-- Sidebar Header -->
+                <div class="p-6 border-b border-gray-100">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center">
+                            <i class="fas fa-chart-line text-white text-sm"></i>
+                        </div>
+                        <div>
+                            <h2 class="font-semibold text-gray-900">Panel de Control</h2>
+                            <p class="text-xs text-gray-500">Director RH</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Navigation -->
+                <div class="p-4">
+                    <ul class="space-y-1">
+                        <li>
+                            <a @click="setView('dashboard')" 
+                               :class="getNavItemClass('dashboard')"
+                               class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg cursor-pointer transition-all">
+                                <i class="fas fa-chart-line mr-3 w-5"></i>
+                                Dashboard
+                            </a>
+                        </li>
+                        <li>
+                            <a @click="setView('processes')" 
+                               :class="getNavItemClass('processes')"
+                               class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg cursor-pointer transition-all">
+                                <i class="fas fa-cogs mr-3 w-5"></i>
+                                Procesos
+                                <span x-show="stats.activeProcesses > 0" 
+                                      class="ml-auto bg-primary-100 text-primary-800 text-xs px-2 py-1 rounded-full"
+                                      x-text="stats.activeProcesses"></span>
+                            </a>
+                        </li>
+                        <li>
+                            <a @click="setView('candidates')" 
+                               :class="getNavItemClass('candidates')"
+                               class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg cursor-pointer transition-all">
+                                <i class="fas fa-user-tie mr-3 w-5"></i>
+                                Candidatos
+                            </a>
+                        </li>
+                        <li>
+                            <a @click="setView('clients')" 
+                               :class="getNavItemClass('clients')"
+                               class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg cursor-pointer transition-all">
+                                <i class="fas fa-building mr-3 w-5"></i>
+                                Clientes
+                            </a>
+                        </li>
+                        <li>
+                            <a @click="setView('team')" 
+                               :class="getNavItemClass('team')"
+                               class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg cursor-pointer transition-all">
+                                <i class="fas fa-users mr-3 w-5"></i>
+                                Equipo
+                            </a>
+                        </li>
+                        <li>
+                            <a @click="setView('approvals')" 
+                               :class="getNavItemClass('approvals')"
+                               class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg cursor-pointer transition-all">
+                                <i class="fas fa-check-circle mr-3 w-5"></i>
+                                Aprobaciones
+                                <span x-show="pendingApprovals.length > 0" 
+                                      class="ml-auto bg-red-500 text-white text-xs px-2 py-1 rounded-full"
+                                      x-text="pendingApprovals.length"></span>
+                            </a>
+                        </li>
+                        <li>
+                            <a @click="setView('reports')" 
+                               :class="getNavItemClass('reports')"
+                               class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg cursor-pointer transition-all">
+                                <i class="fas fa-chart-bar mr-3 w-5"></i>
+                                Reportes
+                            </a>
+                        </li>
+                        <li>
+                            <a @click="setView('documents')" 
+                               :class="getNavItemClass('documents')"
+                               class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg cursor-pointer transition-all">
+                                <i class="fas fa-file-alt mr-3 w-5"></i>
+                                Documentos
+                            </a>
+                        </li>
+                    </ul>
+                    
+                    <!-- Quick Actions -->
+                    <div class="mt-8 pt-6 border-t border-gray-100">
+                        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Acciones Rápidas</h3>
+                        <div class="space-y-2">
+                            <button @click="openNewProcessModal()" 
+                                    class="w-full flex items-center px-3 py-2 text-sm text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
+                                <i class="fas fa-plus mr-3"></i>
+                                Nuevo Proceso
+                            </button>
+                            <button @click="openUploadCVModal()" 
+                                    class="w-full flex items-center px-3 py-2 text-sm text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
+                                <i class="fas fa-upload mr-3"></i>
+                                Subir CV
+                            </button>
+                            <button @click="generateReport()" 
+                                    class="w-full flex items-center px-3 py-2 text-sm text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
+                                <i class="fas fa-download mr-3"></i>
+                                Generar Reporte
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Main Content -->
+            <main class="flex-1 lg:ml-0 min-h-screen" 
+                  :class="sidebarOpen ? 'ml-64' : 'ml-0 lg:ml-0'"
+                  @click="sidebarOpen = false">
+                
+                <!-- Dashboard Content -->
+                <div x-show="currentView === 'dashboard'" x-transition class="p-6">
+                    <!-- Page Header -->
+                    <div class="mb-8">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h2 class="text-3xl font-bold text-gray-900">Panel Directivo</h2>
+                                <p class="text-gray-600 mt-1">Resumen ejecutivo del sistema de reclutamiento</p>
+                            </div>
+                            <div class="mt-4 sm:mt-0 flex space-x-3">
+                                <button @click="refreshDashboard()" 
+                                        class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                    <i class="fas fa-sync mr-2"></i>Actualizar
+                                </button>
+                                <button @click="exportDashboard()" 
+                                        class="px-4 py-2 btn-primary text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                    <i class="fas fa-download mr-2"></i>Exportar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- KPI Cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <!-- Procesos Activos -->
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Procesos Activos</p>
+                                    <p class="text-3xl font-bold text-gray-900 mt-2" x-text="stats.activeProcesses">-</p>
+                                    <div class="flex items-center mt-2 text-sm">
+                                        <span class="text-green-600 flex items-center">
+                                            <i class="fas fa-arrow-up mr-1"></i>
+                                            +15%
+                                        </span>
+                                        <span class="text-gray-500 ml-1">vs mes anterior</span>
+                                    </div>
+                                </div>
+                                <div class="p-3 gradient-primary rounded-lg">
+                                    <i class="fas fa-briefcase text-white text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Candidatos Finalizados -->
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Candidatos Finalizados</p>
+                                    <p class="text-3xl font-bold text-gray-900 mt-2" x-text="stats.completedCandidates">-</p>
+                                    <div class="flex items-center mt-2 text-sm">
+                                        <span class="text-green-600 flex items-center">
+                                            <i class="fas fa-arrow-up mr-1"></i>
+                                            +8%
+                                        </span>
+                                        <span class="text-gray-500 ml-1">vs mes anterior</span>
+                                    </div>
+                                </div>
+                                <div class="p-3 gradient-success rounded-lg">
+                                    <i class="fas fa-user-check text-white text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tasa de Éxito -->
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Tasa de Éxito</p>
+                                    <p class="text-3xl font-bold text-gray-900 mt-2" x-text="stats.successRate + '%'">-</p>
+                                    <div class="flex items-center mt-2 text-sm">
+                                        <span class="text-green-600 flex items-center">
+                                            <i class="fas fa-arrow-up mr-1"></i>
+                                            +3%
+                                        </span>
+                                        <span class="text-gray-500 ml-1">vs mes anterior</span>
+                                    </div>
+                                </div>
+                                <div class="p-3 gradient-warning rounded-lg">
+                                    <i class="fas fa-percentage text-white text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Satisfacción Cliente -->
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Satisfacción Cliente</p>
+                                    <p class="text-3xl font-bold text-gray-900 mt-2" x-text="stats.clientSatisfaction + '/5'">-</p>
+                                    <div class="flex items-center mt-2 text-sm">
+                                        <span class="text-green-600 flex items-center">
+                                            <i class="fas fa-arrow-up mr-1"></i>
+                                            +0.3
+                                        </span>
+                                        <span class="text-gray-500 ml-1">vs mes anterior</span>
+                                    </div>
+                                </div>
+                                <div class="p-3 gradient-purple rounded-lg">
+                                    <i class="fas fa-star text-white text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                        <!-- Gráfico de Procesos -->
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <div class="flex items-center justify-between mb-6">
+                                <h3 class="text-lg font-semibold text-gray-900">Procesos por Estado</h3>
+                                <button class="text-gray-400 hover:text-gray-600">
+                                    <i class="fas fa-ellipsis-h"></i>
+                                </button>
+                            </div>
+                            <canvas id="processChart" class="max-h-64"></canvas>
+                        </div>
+
+                        <!-- Actividad Reciente -->
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <div class="flex items-center justify-between mb-6">
+                                <h3 class="text-lg font-semibold text-gray-900">Actividad Reciente</h3>
+                                <a href="#" class="text-sm text-primary-600 hover:text-primary-700">Ver todo</a>
+                            </div>
+                            <div class="space-y-4 max-h-64 overflow-y-auto custom-scrollbar">
+                                <template x-for="activity in recentActivity" :key="activity.id">
+                                    <div class="flex items-start space-x-3 animate-fade-in-up">
+                                        <div class="w-8 h-8 rounded-full flex items-center justify-center"
+                                             :class="activity.type === 'success' ? 'bg-green-100' : activity.type === 'info' ? 'bg-blue-100' : 'bg-purple-100'">
+                                            <i :class="activity.icon" 
+                                               :class="activity.type === 'success' ? 'text-green-600' : activity.type === 'info' ? 'text-blue-600' : 'text-purple-600'"
+                                               class="text-xs"></i>
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-sm text-gray-900" x-text="activity.message"></p>
+                                            <p class="text-xs text-gray-500" x-text="activity.details"></p>
+                                            <p class="text-xs text-gray-400" x-text="activity.time"></p>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Aprobaciones Pendientes Table -->
+                    <div class="card bg-white rounded-xl shadow-sm border border-gray-200">
+                        <div class="px-6 py-4 border-b border-gray-100">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-lg font-semibold text-gray-900">Aprobaciones Pendientes</h3>
+                                <span class="bg-red-100 text-red-800 text-xs font-medium px-3 py-1 rounded-full"
+                                      x-text="pendingApprovals.length + ' pendientes'"></span>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Candidato</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Posición</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score IA</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supervisor</th>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <template x-for="approval in pendingApprovals" :key="approval.id">
+                                        <tr class="table-row">
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="flex items-center">
+                                                    <img class="h-10 w-10 rounded-full border-2 border-gray-200" 
+                                                         :src="'https://ui-avatars.com/api/?name=' + encodeURIComponent(approval.candidate) + '&background=random'" 
+                                                         :alt="approval.candidate">
+                                                    <div class="ml-3">
+                                                        <p class="text-sm font-medium text-gray-900" x-text="approval.candidate"></p>
+                                                        <p class="text-xs text-gray-500" x-text="approval.email"></p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <p class="text-sm text-gray-900" x-text="approval.position"></p>
+                                                <p class="text-xs text-gray-500" x-text="approval.department"></p>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="approval.client"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="flex items-center">
+                                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full"
+                                                          :class="approval.score >= 90 ? 'bg-green-100 text-green-800' : 
+                                                                 approval.score >= 80 ? 'bg-yellow-100 text-yellow-800' : 
+                                                                 'bg-red-100 text-red-800'"
+                                                          x-text="approval.score + '%'"></span>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="approval.supervisor"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <div class="flex justify-end space-x-2">
+                                                    <button @click="approveCandidate(approval.id)" 
+                                                            class="text-green-600 hover:text-green-900 p-1 rounded tooltip" 
+                                                            data-tooltip="Aprobar">
+                                                        <i class="fas fa-check"></i>
+                                                    </button>
+                                                    <button @click="rejectCandidate(approval.id)" 
+                                                            class="text-red-600 hover:text-red-900 p-1 rounded tooltip" 
+                                                            data-tooltip="Rechazar">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                    <button @click="viewCandidate(approval.id)" 
+                                                            class="text-blue-600 hover:text-blue-900 p-1 rounded tooltip" 
+                                                            data-tooltip="Ver detalles">
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div x-show="pendingApprovals.length === 0" class="text-center py-12 empty-state">
+                            <i class="fas fa-check-circle text-6xl text-gray-300 mb-4"></i>
+                            <p class="text-gray-500">No hay aprobaciones pendientes</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Other Views Placeholder -->
+                <div x-show="currentView !== 'dashboard'" x-transition class="p-6">
+                    <div class="text-center py-20">
+                        <i class="fas fa-cog text-6xl text-gray-300 mb-4"></i>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-2">Sección en Desarrollo</h3>
+                        <p class="text-gray-500 mb-6" x-text="'La sección de ' + currentView + ' está siendo desarrollada'"></p>
+                        <button @click="setView('dashboard')" class="btn-primary px-6 py-2 rounded-lg text-white">
+                            <i class="fas fa-arrow-left mr-2"></i>Volver al Dashboard
+                        </button>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="api-client.js"></script>
+    <script>
+        function directorApp() {
+            return {
+                // State
+                currentView: 'dashboard',
+                loading: false,
+                sidebarOpen: false,
+                searchQuery: '',
+                
+                // API Client
+                api: new RecruitmentAPI(),
+                
+                // Data
+                stats: {
+                    activeProcesses: 0,
+                    completedCandidates: 0,
+                    successRate: 0,
+                    clientSatisfaction: 0
+                },
+                
+                notifications: {
+                    unread: 0,
+                    items: []
+                },
+                
+                pendingApprovals: [],
+                recentActivity: [],
+                processes: [],
+                
+                // Charts
+                processChart: null,
+                
+                // Initialize
+                async init() {
+                    this.loading = true;
+                    try {
+                        await this.loadDashboardData();
+                        this.setupCharts();
+                        this.startRealTimeUpdates();
+                    } catch (error) {
+                        console.error('Error initializing dashboard:', error);
+                        NotificationManager.error('Error cargando el dashboard');
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                
+                // Data Loading
+                async loadDashboardData() {
+                    try {
+                        // Load mock data for now
+                        this.stats = {
+                            activeProcesses: 12,
+                            completedCandidates: 25,
+                            successRate: 85,
+                            clientSatisfaction: 4.7
+                        };
+                        
+                        this.notifications = {
+                            unread: 3,
+                            items: [
+                                {
+                                    id: 1,
+                                    message: 'Nuevo candidato requiere aprobación',
+                                    time: 'Hace 5 min',
+                                    icon: 'fas fa-user-plus'
+                                },
+                                {
+                                    id: 2,
+                                    message: 'Reporte mensual disponible',
+                                    time: 'Hace 1 hora',
+                                    icon: 'fas fa-chart-bar'
+                                },
+                                {
+                                    id: 3,
+                                    message: 'Cliente TechCorp agregó feedback',
+                                    time: 'Hace 2 horas',
+                                    icon: 'fas fa-comment'
+                                }
+                            ]
+                        };
+                        
+                        this.pendingApprovals = [
+                            {
+                                id: 1,
+                                candidate: 'María García López',
+                                email: 'maria.garcia@email.com',
+                                position: 'Desarrolladora Frontend',
+                                department: 'Tecnología',
+                                client: 'TechCorp S.A.',
+                                score: 92,
+                                supervisor: 'Juan Pérez'
+                            },
+                            {
+                                id: 2,
+                                candidate: 'Carlos López Ruiz',
+                                email: 'carlos.lopez@email.com',
+                                position: 'DevOps Engineer',
+                                department: 'Infraestructura',
+                                client: 'StartupXYZ',
+                                score: 88,
+                                supervisor: 'Ana Martínez'
+                            },
+                            {
+                                id: 3,
+                                candidate: 'Ana Martínez Silva',
+                                email: 'ana.martinez@email.com',
+                                position: 'Product Manager',
+                                department: 'Producto',
+                                client: 'InnovaCorp',
+                                score: 85,
+                                supervisor: 'Carlos Ruiz'
+                            }
+                        ];
+                        
+                        this.recentActivity = [
+                            {
+                                id: 1,
+                                type: 'success',
+                                icon: 'fas fa-check',
+                                message: 'Candidato aprobado para TechCorp',
+                                details: 'Juan Pérez - Desarrollador Senior',
+                                time: 'Hace 2 horas'
+                            },
+                            {
+                                id: 2,
+                                type: 'info',
+                                icon: 'fas fa-file-alt',
+                                message: 'Nuevo reporte generado',
+                                details: 'Reporte mensual de actividad',
+                                time: 'Hace 4 horas'
+                            },
+                            {
+                                id: 3,
+                                type: 'purple',
+                                icon: 'fas fa-building',
+                                message: 'Nuevo cliente registrado',
+                                details: 'StartupXYZ - 5 posiciones abiertas',
+                                time: 'Ayer'
+                            }
+                        ];
+                        
+                        // In production, load real data:
+                        // const [statsData, approvalsData, activityData] = await Promise.all([
+                        //     this.api.getDashboardStats(),
+                        //     this.api.getPendingApprovals(),
+                        //     this.api.getRecentActivity()
+                        // ]);
+                        
+                    } catch (error) {
+                        console.error('Error loading dashboard data:', error);
+                        throw error;
+                    }
+                },
+                
+                // Charts
+                setupCharts() {
+                    this.$nextTick(() => {
+                        const ctx = document.getElementById('processChart');
+                        if (ctx) {
+                            this.processChart = new Chart(ctx, {
+                                type: 'doughnut',
+                                data: {
+                                    labels: ['En Proceso', 'Completados', 'Pausados'],
+                                    datasets: [{
+                                        data: [8, 25, 4],
+                                        backgroundColor: [
+                                            '#3B82F6',
+                                            '#10B981',
+                                            '#F59E0B'
+                                        ],
+                                        borderWidth: 0
+                                    }]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: {
+                                        legend: {
+                                            position: 'bottom'
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                    });
+                },
+                
+                // Navigation
+                setView(view) {
+                    this.currentView = view;
+                    this.sidebarOpen = false;
+                },
+                
+                getNavItemClass(view) {
+                    return this.currentView === view 
+                        ? 'bg-primary-50 text-primary-700 border-r-2 border-primary-600' 
+                        : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900';
+                },
+                
+                // Actions
+                async approveCandidate(id) {
+                    try {
+                        this.loading = true;
+                        // await this.api.approveCandidate(id);
+                        
+                        // Remove from pending list
+                        this.pendingApprovals = this.pendingApprovals.filter(approval => approval.id !== id);
+                        NotificationManager.success('Candidato aprobado exitosamente');
+                    } catch (error) {
+                        NotificationManager.error('Error al aprobar candidato');
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                
+                async rejectCandidate(id) {
+                    try {
+                        this.loading = true;
+                        // await this.api.rejectCandidate(id, 'Rechazado por director');
+                        
+                        // Remove from pending list
+                        this.pendingApprovals = this.pendingApprovals.filter(approval => approval.id !== id);
+                        NotificationManager.warning('Candidato rechazado');
+                    } catch (error) {
+                        NotificationManager.error('Error al rechazar candidato');
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                
+                viewCandidate(id) {
+                    // Open candidate detail modal or navigate
+                    NotificationManager.info('Abriendo detalles del candidato...');
+                },
+                
+                async refreshDashboard() {
+                    try {
+                        await this.loadDashboardData();
+                        NotificationManager.success('Dashboard actualizado');
+                    } catch (error) {
+                        NotificationManager.error('Error actualizando dashboard');
+                    }
+                },
+                
+                exportDashboard() {
+                    NotificationManager.info('Generando exportación...');
+                },
+                
+                openNewProcessModal() {
+                    NotificationManager.info('Abriendo formulario de nuevo proceso...');
+                },
+                
+                openUploadCVModal() {
+                    NotificationManager.info('Abriendo subida de CV...');
+                },
+                
+                generateReport() {
+                    NotificationManager.info('Generando reporte...');
+                },
+                
+                handleSearch: DataUtils.debounce(function() {
+                    if (this.searchQuery.length > 2) {
+                        NotificationManager.info(`Buscando: ${this.searchQuery}`);
+                    }
+                }, 300),
+                
+                logout() {
+                    localStorage.removeItem('authToken');
+                    localStorage.removeItem('refreshToken');
+                    NotificationManager.info('Sesión cerrada');
+                    // window.location.href = '/login';
+                },
+                
+                // Real-time updates
+                startRealTimeUpdates() {
+                    // Update every 30 seconds
+                    setInterval(() => {
+                        this.loadDashboardData();
+                    }, 30000);
+                }
+            }
+        }
+    </script>
+</body>
+</html>

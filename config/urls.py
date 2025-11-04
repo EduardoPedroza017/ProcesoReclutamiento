@@ -29,6 +29,7 @@ urlpatterns = [
     path('api/ai-services/', include('apps.ai_services.urls')),
 ]
 
+
 # Servir archivos media en desarrollo
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
@@ -38,3 +39,4 @@ if settings.DEBUG:
 admin.site.site_header = "Administración - Sistema de Reclutamiento"
 admin.site.site_title = "Sistema de Reclutamiento"
 admin.site.index_title = "Panel de Control"
+
