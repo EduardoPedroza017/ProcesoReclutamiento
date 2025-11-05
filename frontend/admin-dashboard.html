@@ -1,0 +1,2257 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Sistema de Reclutamiento</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 font-sans antialiased">
+    <div id="app" x-data="adminApp()" x-init="init()" class="min-h-screen">
+        
+        <!-- Loading Overlay -->
+        <div x-show="loading" class="fixed inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50">
+            <div class="text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+                <p class="text-gray-600">Cargando panel de administración...</p>
+            </div>
+        </div>
+
+        <!-- Header -->
+        <header class="bg-white shadow-sm border-b border-gray-200 relative z-10">
+            <div class="px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <!-- Logo y Título -->
+                    <div class="flex items-center">
+                        <button @click="sidebarOpen = !sidebarOpen" class="lg:hidden mr-4 text-gray-600 hover:text-gray-900">
+                            <i class="fas fa-bars text-xl"></i>
+                        </button>
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 bg-gradient-to-br from-primary-600 to-primary-800 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-cog text-white text-sm"></i>
+                            </div>
+                            <div>
+                                <h1 class="text-xl font-bold text-gray-900">Admin Panel</h1>
+                                <p class="text-xs text-gray-500">Sistema de Reclutamiento</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Header Actions -->
+                    <div class="flex items-center space-x-4">
+                        <!-- Search -->
+                        <div class="hidden md:flex items-center">
+                            <div class="relative">
+                                <input type="text" 
+                                       placeholder="Buscar..." 
+                                       class="w-64 px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                            </div>
+                        </div>
+
+                        <!-- Notifications -->
+                        <div class="relative" x-data="{ open: false }">
+                            <button @click="open = !open" class="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                                <i class="fas fa-bell text-xl"></i>
+                                <span x-show="notifications.length > 0" class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                            </button>
+                            
+                            <div x-show="open" 
+                                 @click.away="open = false"
+                                 x-transition
+                                 class="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 py-2">
+                                <div class="px-4 py-2 border-b border-gray-200">
+                                    <h3 class="font-semibold text-gray-900">Notificaciones</h3>
+                                </div>
+                                <div class="max-h-96 overflow-y-auto">
+                                    <template x-for="notif in notifications" :key="notif.id">
+                                        <div class="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100">
+                                            <p class="text-sm text-gray-900" x-text="notif.message"></p>
+                                            <p class="text-xs text-gray-500 mt-1" x-text="notif.time"></p>
+                                        </div>
+                                    </template>
+                                    <div x-show="notifications.length === 0" class="px-4 py-8 text-center text-gray-500">
+                                        <i class="fas fa-bell-slash text-3xl mb-2"></i>
+                                        <p>No hay notificaciones</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- User Menu -->
+                        <div class="relative" x-data="{ open: false }">
+                            <button @click="open = !open" class="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                                <div class="w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center">
+                                    <span class="text-white text-sm font-medium">MA</span>
+                                </div>
+                                <div class="hidden md:block text-left">
+                                    <p class="text-sm font-medium text-gray-900">María Admin</p>
+                                    <p class="text-xs text-gray-500">Administradora</p>
+                                </div>
+                                <i class="fas fa-chevron-down text-gray-400 text-xs"></i>
+                            </button>
+
+                            <div x-show="open" 
+                                 @click.away="open = false"
+                                 x-transition
+                                 class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2">
+                                <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    <i class="fas fa-user mr-2"></i>Mi Perfil
+                                </a>
+                                <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    <i class="fas fa-cog mr-2"></i>Configuración
+                                </a>
+                                <hr class="my-2">
+                                <a href="login.html" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
+                                    <i class="fas fa-sign-out-alt mr-2"></i>Cerrar Sesión
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Layout: Sidebar + Main Content -->
+        <div class="flex">
+            <!-- Sidebar -->
+            <aside class="fixed inset-y-0 left-0 top-16 w-64 bg-white border-r border-gray-200 overflow-y-auto transition-transform duration-300 ease-in-out z-20"
+                   :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'">
+                
+                <!-- Sidebar Header -->
+                <div class="p-6 border-b border-gray-100">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 flex-shrink-0 bg-gradient-to-br from-primary-600 to-primary-800 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-tools text-white text-sm"></i>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <h2 class="font-semibold text-gray-900 truncate">Administración</h2>
+                            <p class="text-xs text-gray-500 truncate">Panel de Control</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Navigation -->
+                <nav class="p-4">
+                    <ul class="space-y-1">
+                        <li>
+                            <a @click="setView('dashboard')" 
+                               :class="getNavItemClass('dashboard')"
+                               class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg cursor-pointer transition-all">
+                                <i class="fas fa-chart-pie mr-3 w-5"></i>
+                                Dashboard
+                            </a>
+                        </li>
+                        
+                        <!-- Gestión de Usuarios -->
+                        <li class="pt-4 pb-2">
+                            <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Usuarios</p>
+                        </li>
+                        <li>
+                            <a @click="setView('users')" 
+                               :class="getNavItemClass('users')"
+                               class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg cursor-pointer transition-all">
+                                <i class="fas fa-users mr-3 w-5"></i>
+                                Usuarios
+                            </a>
+                        </li>
+                        <li>
+                            <a @click="setView('roles')" 
+                               :class="getNavItemClass('roles')"
+                               class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg cursor-pointer transition-all">
+                                <i class="fas fa-shield-alt mr-3 w-5"></i>
+                                Roles y Permisos
+                            </a>
+                        </li>
+                        
+                        <!-- Comunicaciones -->
+                        <li class="pt-4 pb-2">
+                            <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Comunicaciones</p>
+                        </li>
+                        <li>
+                            <a @click="setView('email-templates')" 
+                               :class="getNavItemClass('email-templates')"
+                               class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg cursor-pointer transition-all">
+                                <i class="fas fa-envelope mr-3 w-5"></i>
+                                Plantillas Email
+                            </a>
+                        </li>
+                        <li>
+                            <a @click="setView('email-logs')" 
+                               :class="getNavItemClass('email-logs')"
+                               class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg cursor-pointer transition-all">
+                                <i class="fas fa-paper-plane mr-3 w-5"></i>
+                                Logs de Emails
+                            </a>
+                        </li>
+                        
+                        <!-- Plantillas del Sistema -->
+                        <li class="pt-4 pb-2">
+                            <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Plantillas</p>
+                        </li>
+                        <li>
+                            <a @click="setView('evaluation-templates')" 
+                               :class="getNavItemClass('evaluation-templates')"
+                               class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg cursor-pointer transition-all">
+                                <i class="fas fa-clipboard-check mr-3 w-5"></i>
+                                Evaluaciones
+                            </a>
+                        </li>
+                        <li>
+                            <a @click="setView('document-templates')" 
+                               :class="getNavItemClass('document-templates')"
+                               class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg cursor-pointer transition-all">
+                                <i class="fas fa-file-alt mr-3 w-5"></i>
+                                Documentos
+                            </a>
+                        </li>
+                        
+                        <!-- Sistema -->
+                        <li class="pt-4 pb-2">
+                            <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Sistema</p>
+                        </li>
+                        <li>
+                            <a @click="setView('config')" 
+                               :class="getNavItemClass('config')"
+                               class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg cursor-pointer transition-all">
+                                <i class="fas fa-cog mr-3 w-5"></i>
+                                Configuración
+                            </a>
+                        </li>
+                        <li>
+                            <a @click="setView('logs')" 
+                               :class="getNavItemClass('logs')"
+                               class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg cursor-pointer transition-all">
+                                <i class="fas fa-list-alt mr-3 w-5"></i>
+                                Logs del Sistema
+                            </a>
+                        </li>
+                        <li>
+                            <a @click="setView('backups')" 
+                               :class="getNavItemClass('backups')"
+                               class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg cursor-pointer transition-all">
+                                <i class="fas fa-database mr-3 w-5"></i>
+                                Backups
+                            </a>
+                        </li>
+                        <li>
+                            <a @click="setView('monitoring')" 
+                               :class="getNavItemClass('monitoring')"
+                               class="sidebar-item flex items-center px-3 py-2 text-sm font-medium rounded-lg cursor-pointer transition-all">
+                                <i class="fas fa-server mr-3 w-5"></i>
+                                Monitoreo
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+
+                <!-- System Status -->
+                <div class="p-4 m-4 bg-gradient-to-br from-primary-50 to-purple-50 rounded-lg border border-primary-200">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-semibold text-primary-700">Estado del Sistema</span>
+                        <span class="flex h-2 w-2">
+                            <span class="animate-ping absolute h-2 w-2 rounded-full bg-green-400 opacity-75"></span>
+                            <span class="relative rounded-full h-2 w-2 bg-green-500"></span>
+                        </span>
+                    </div>
+                    <p class="text-xs text-gray-600">Todo funcionando correctamente</p>
+                </div>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="flex-1 mt-16 p-6"
+                  :class="sidebarOpen ? 'ml-64' : 'ml-0 lg:ml-64'"
+                  @click="sidebarOpen = false">
+                
+                <!-- ═══════════════════════════════════════════════════════ -->
+                <!-- DASHBOARD VIEW -->
+                <!-- ═══════════════════════════════════════════════════════ -->
+                <div x-show="currentView === 'dashboard'" x-transition class="space-y-6">
+                    <!-- Page Header -->
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h2 class="text-3xl font-bold text-gray-900">Panel de Administración</h2>
+                            <p class="text-gray-600 mt-1">Monitoreo y gestión del sistema</p>
+                        </div>
+                        <div class="mt-4 sm:mt-0 flex space-x-3">
+                            <button @click="refreshDashboard()" 
+                                    class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                <i class="fas fa-sync mr-2"></i>Actualizar
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- KPI Cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <!-- Total Users -->
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Total Usuarios</p>
+                                    <p class="text-3xl font-bold text-gray-900 mt-2" x-text="stats.totalUsers"></p>
+                                    <p class="text-sm text-gray-500 mt-1">
+                                        <span class="text-green-600 font-medium" x-text="stats.activeUsers"></span> activos
+                                    </p>
+                                </div>
+                                <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-users text-white text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Active Sessions -->
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Sesiones Activas</p>
+                                    <p class="text-3xl font-bold text-gray-900 mt-2" x-text="stats.activeSessions"></p>
+                                    <p class="text-sm text-gray-500 mt-1">
+                                        <span class="text-blue-600 font-medium" x-text="stats.todaySessions"></span> hoy
+                                    </p>
+                                </div>
+                                <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-plug text-white text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- System Alerts -->
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Alertas Sistema</p>
+                                    <p class="text-3xl font-bold text-gray-900 mt-2" x-text="stats.systemAlerts"></p>
+                                    <p class="text-sm text-gray-500 mt-1">
+                                        <span :class="stats.criticalAlerts > 0 ? 'text-red-600' : 'text-green-600'" 
+                                              class="font-medium" 
+                                              x-text="stats.criticalAlerts"></span> críticas
+                                    </p>
+                                </div>
+                                <div class="w-12 h-12 bg-gradient-to-br from-red-500 to-red-700 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-exclamation-triangle text-white text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Disk Usage -->
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Uso de Disco</p>
+                                    <p class="text-3xl font-bold text-gray-900 mt-2" x-text="stats.diskUsage + '%'"></p>
+                                    <p class="text-sm text-gray-500 mt-1">
+                                        <span class="text-gray-600 font-medium" x-text="stats.diskUsed"></span> / <span x-text="stats.diskTotal"></span>
+                                    </p>
+                                </div>
+                                <div class="w-12 h-12 bg-gradient-to-br from-yellow-500 to-yellow-700 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-hdd text-white text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- System Performance Chart -->
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Rendimiento del Sistema</h3>
+                            <div class="h-64">
+                                <canvas id="performanceChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- User Activity Chart -->
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Actividad de Usuarios</h3>
+                            <div class="h-64">
+                                <canvas id="activityChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold text-gray-900">Actividad Reciente</h3>
+                            <button class="text-sm text-primary-600 hover:text-primary-700 font-medium">
+                                Ver todo <i class="fas fa-arrow-right ml-1"></i>
+                            </button>
+                        </div>
+                        <div class="space-y-4">
+                            <template x-for="activity in recentActivity.slice(0, 5)" :key="activity.id">
+                                <div class="flex items-center space-x-4 p-3 hover:bg-gray-50 rounded-lg transition-colors">
+                                    <div class="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
+                                        <i :class="activity.icon" class="text-primary-600"></i>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm text-gray-900">
+                                            <span class="font-medium" x-text="activity.user"></span>
+                                            <span x-text="activity.action"></span>
+                                        </p>
+                                        <p class="text-xs text-gray-500" x-text="activity.time"></p>
+                                    </div>
+                                    <span :class="activity.statusColor" 
+                                          class="px-2 py-1 text-xs font-medium rounded-full" 
+                                          x-text="activity.status"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════════ -->
+                <!-- USERS VIEW -->
+                <!-- ═══════════════════════════════════════════════════════ -->
+                <div x-show="currentView === 'users'" x-transition class="space-y-6">
+                    <!-- Page Header -->
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h2 class="text-3xl font-bold text-gray-900">Gestión de Usuarios</h2>
+                            <p class="text-gray-600 mt-1">Administra usuarios y sus permisos</p>
+                        </div>
+                        <div class="mt-4 sm:mt-0">
+                            <button @click="openUserModal(null)" 
+                                    class="px-4 py-2 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-lg hover:from-primary-700 hover:to-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                <i class="fas fa-user-plus mr-2"></i>Crear Usuario
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div>
+                                <input type="text" 
+                                       x-model="userFilters.search"
+                                       placeholder="Buscar por nombre o email..." 
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                            </div>
+                            <div>
+                                <select x-model="userFilters.role" 
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                    <option value="">Todos los roles</option>
+                                    <option value="director">Director</option>
+                                    <option value="supervisor">Supervisor</option>
+                                    <option value="admin">Administrador</option>
+                                </select>
+                            </div>
+                            <div>
+                                <select x-model="userFilters.status" 
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                    <option value="">Todos los estados</option>
+                                    <option value="active">Activo</option>
+                                    <option value="inactive">Inactivo</option>
+                                </select>
+                            </div>
+                            <div>
+                                <button @click="applyUserFilters()" 
+                                        class="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+                                    <i class="fas fa-filter mr-2"></i>Filtrar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Users Table -->
+                    <div class="card bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Último Acceso</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <template x-for="user in users" :key="user.id">
+                                        <tr class="hover:bg-gray-50 transition-colors">
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="flex items-center">
+                                                    <div class="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center">
+                                                        <span class="text-white text-sm font-medium" x-text="user.initials"></span>
+                                                    </div>
+                                                    <div class="ml-4">
+                                                        <div class="text-sm font-medium text-gray-900" x-text="user.name"></div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="text-sm text-gray-900" x-text="user.email"></div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span :class="getRoleBadgeClass(user.role)" 
+                                                      class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full">
+                                                    <i :class="getRoleIcon(user.role)" class="mr-1"></i>
+                                                    <span x-text="getRoleLabel(user.role)"></span>
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span :class="user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'" 
+                                                      class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full">
+                                                    <i :class="user.status === 'active' ? 'fas fa-circle text-green-600' : 'fas fa-circle text-gray-600'" 
+                                                       class="mr-1 text-xs"></i>
+                                                    <span x-text="user.status === 'active' ? 'Activo' : 'Inactivo'"></span>
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="user.lastLogin"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                                <button @click="openUserModal(user)" 
+                                                        class="text-primary-600 hover:text-primary-900">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button @click="toggleUserStatus(user)" 
+                                                        class="text-yellow-600 hover:text-yellow-900">
+                                                    <i :class="user.status === 'active' ? 'fas fa-pause' : 'fas fa-play'"></i>
+                                                </button>
+                                                <button @click="deleteUser(user)" 
+                                                        class="text-red-600 hover:text-red-900">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════════ -->
+                <!-- ROLES VIEW -->
+                <!-- ═══════════════════════════════════════════════════════ -->
+                <div x-show="currentView === 'roles'" x-transition class="space-y-6">
+                    <div>
+                        <h2 class="text-3xl font-bold text-gray-900">Roles y Permisos</h2>
+                        <p class="text-gray-600 mt-1">Gestiona roles y asigna permisos</p>
+                    </div>
+
+                    <!-- Roles Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <!-- Director Role -->
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-user-tie text-blue-600 text-xl"></i>
+                                </div>
+                                <span class="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">3 usuarios</span>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2">Director</h3>
+                            <p class="text-sm text-gray-600 mb-4">Gestión completa de procesos de reclutamiento</p>
+                            <div class="space-y-2">
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-check text-green-600 mr-2"></i>
+                                    Gestionar procesos
+                                </div>
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-check text-green-600 mr-2"></i>
+                                    Aprobar candidatos
+                                </div>
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-check text-green-600 mr-2"></i>
+                                    Ver analytics
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Admin Role -->
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-user-cog text-blue-600 text-xl"></i>
+                                </div>
+                                <span class="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">2 usuarios</span>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2">Administrador</h3>
+                            <p class="text-sm text-gray-600 mb-4">Configuración y administración del sistema</p>
+                            <div class="space-y-2">
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-check text-green-600 mr-2"></i>
+                                    Gestionar usuarios
+                                </div>
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-check text-green-600 mr-2"></i>
+                                    Configurar sistema
+                                </div>
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-check text-green-600 mr-2"></i>
+                                    Ver logs
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Supervisor Role -->
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-user-check text-green-600 text-xl"></i>
+                                </div>
+                                <span class="px-3 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">20 usuarios</span>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2">Supervisor</h3>
+                            <p class="text-sm text-gray-600 mb-4">Visualización de procesos asignados</p>
+                            <div class="space-y-2">
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-check text-green-600 mr-2"></i>
+                                    Ver procesos
+                                </div>
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-check text-green-600 mr-2"></i>
+                                    Exportar reportes
+                                </div>
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-times text-red-600 mr-2"></i>
+                                    Sin permisos de edición
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════════ -->
+                <!-- CONFIGURATION VIEW -->
+                <!-- ═══════════════════════════════════════════════════════ -->
+                <div x-show="currentView === 'config'" x-transition class="space-y-6">
+                    <div>
+                        <h2 class="text-3xl font-bold text-gray-900">Configuración del Sistema</h2>
+                        <p class="text-gray-600 mt-1">Ajusta los parámetros globales del sistema</p>
+                    </div>
+
+                    <!-- Configuration Tabs -->
+                    <div class="card bg-white rounded-xl shadow-sm border border-gray-200">
+                        <div class="border-b border-gray-200">
+                            <nav class="flex space-x-8 px-6" x-data="{ activeTab: 'general' }">
+                                <button @click="activeTab = 'general'" 
+                                        :class="activeTab === 'general' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                                    General
+                                </button>
+                                <button @click="activeTab = 'email'" 
+                                        :class="activeTab === 'email' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                                    Email
+                                </button>
+                                <button @click="activeTab = 'security'" 
+                                        :class="activeTab === 'security' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                                    Seguridad
+                                </button>
+                            </nav>
+                        </div>
+
+                        <div class="p-6">
+                            <!-- General Tab -->
+                            <div x-show="activeTab === 'general'" x-data="{ activeTab: 'general' }">
+                                <div class="space-y-6">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Nombre del Sistema</label>
+                                        <input type="text" 
+                                               value="Sistema de Reclutamiento"
+                                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Idioma por Defecto</label>
+                                        <select class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                            <option value="es">Español</option>
+                                            <option value="en">English</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Zona Horaria</label>
+                                        <select class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                            <option value="America/Mexico_City">America/Mexico_City (GMT-6)</option>
+                                            <option value="America/New_York">America/New_York (GMT-5)</option>
+                                        </select>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="checkbox" 
+                                               id="maintenanceMode"
+                                               class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
+                                        <label for="maintenanceMode" class="ml-2 block text-sm text-gray-900">
+                                            Modo Mantenimiento
+                                        </label>
+                                    </div>
+                                    <div class="pt-4">
+                                        <button class="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+                                            Guardar Cambios
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Email Tab -->
+                            <div x-show="activeTab === 'email'" x-data="{ activeTab: 'general' }">
+                                <div class="space-y-6">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Servidor SMTP</label>
+                                        <input type="text" 
+                                               placeholder="smtp.gmail.com"
+                                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Puerto SMTP</label>
+                                        <input type="number" 
+                                               placeholder="587"
+                                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Email de Envío</label>
+                                        <input type="email" 
+                                               placeholder="noreply@company.com"
+                                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                    </div>
+                                    <div class="pt-4">
+                                        <button class="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 mr-3">
+                                            Guardar Cambios
+                                        </button>
+                                        <button class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                                            Probar Conexión
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Security Tab -->
+                            <div x-show="activeTab === 'security'" x-data="{ activeTab: 'general' }">
+                                <div class="space-y-6">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Longitud Mínima de Contraseña</label>
+                                        <input type="number" 
+                                               value="8"
+                                               min="6"
+                                               max="20"
+                                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="checkbox" 
+                                               id="requireUppercase"
+                                               checked
+                                               class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
+                                        <label for="requireUppercase" class="ml-2 block text-sm text-gray-900">
+                                            Requerir mayúsculas
+                                        </label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="checkbox" 
+                                               id="requireNumbers"
+                                               checked
+                                               class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
+                                        <label for="requireNumbers" class="ml-2 block text-sm text-gray-900">
+                                            Requerir números
+                                        </label>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Tiempo de Sesión (minutos)</label>
+                                        <input type="number" 
+                                               value="60"
+                                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                    </div>
+                                    <div class="pt-4">
+                                        <button class="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+                                            Guardar Cambios
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════════ -->
+                <!-- LOGS VIEW -->
+                <!-- ═══════════════════════════════════════════════════════ -->
+                <div x-show="currentView === 'logs'" x-transition class="space-y-6">
+                    <div>
+                        <h2 class="text-3xl font-bold text-gray-900">Logs del Sistema</h2>
+                        <p class="text-gray-600 mt-1">Historial de eventos y actividad del sistema</p>
+                    </div>
+
+                    <!-- Log Filters -->
+                    <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                            <div>
+                                <select class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                    <option value="">Todos los niveles</option>
+                                    <option value="info">Info</option>
+                                    <option value="warning">Warning</option>
+                                    <option value="error">Error</option>
+                                    <option value="critical">Critical</option>
+                                </select>
+                            </div>
+                            <div>
+                                <select class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                    <option value="">Todos los tipos</option>
+                                    <option value="auth">Autenticación</option>
+                                    <option value="crud">CRUD</option>
+                                    <option value="api">API</option>
+                                    <option value="security">Seguridad</option>
+                                </select>
+                            </div>
+                            <div>
+                                <input type="date" 
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                            </div>
+                            <div>
+                                <input type="text" 
+                                       placeholder="Buscar en logs..."
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                            </div>
+                            <div>
+                                <button class="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+                                    <i class="fas fa-filter mr-2"></i>Filtrar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Logs Table -->
+                    <div class="card bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nivel</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acción</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Detalles</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <template x-for="log in logs" :key="log.id">
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="log.timestamp"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span :class="getLogLevelClass(log.level)" 
+                                                      class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full">
+                                                    <span x-text="log.level"></span>
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600" x-text="log.type"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="log.user"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="log.action"></td>
+                                            <td class="px-6 py-4 text-sm text-gray-600" x-text="log.details"></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════════ -->
+                <!-- EMAIL TEMPLATES VIEW -->
+                <!-- ═══════════════════════════════════════════════════════ -->
+                <div x-show="currentView === 'email-templates'" x-transition class="space-y-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-3xl font-bold text-gray-900">Plantillas de Email</h2>
+                            <p class="text-gray-600 mt-1">Gestiona las plantillas de correo electrónico</p>
+                        </div>
+                        <button class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+                            <i class="fas fa-plus mr-2"></i>Nueva Plantilla
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <template x-for="template in emailTemplates" :key="template.id">
+                            <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center">
+                                        <i class="fas fa-envelope text-primary-600 text-xl"></i>
+                                    </div>
+                                    <span :class="template.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'" 
+                                          class="px-2 py-1 text-xs font-semibold rounded-full" 
+                                          x-text="template.status === 'active' ? 'Activa' : 'Inactiva'"></span>
+                                </div>
+                                <h3 class="text-lg font-semibold text-gray-900 mb-2" x-text="template.name"></h3>
+                                <p class="text-sm text-gray-600 mb-4" x-text="template.subject"></p>
+                                <div class="flex items-center justify-between text-xs text-gray-500 mb-4">
+                                    <span>Usado <span x-text="template.usageCount"></span> veces</span>
+                                    <span x-text="template.lastModified"></span>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">
+                                        <i class="fas fa-edit mr-1"></i>Editar
+                                    </button>
+                                    <button class="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════════ -->
+                <!-- EMAIL LOGS VIEW -->
+                <!-- ═══════════════════════════════════════════════════════ -->
+                <div x-show="currentView === 'email-logs'" x-transition class="space-y-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-3xl font-bold text-gray-900">Logs de Emails Enviados</h2>
+                            <p class="text-gray-600 mt-1">Historial completo de correos electrónicos enviados por el sistema</p>
+                        </div>
+                        <div class="flex space-x-3">
+                            <button @click="refreshEmailLogs()" 
+                                    class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                                <i class="fas fa-sync mr-2"></i>Actualizar
+                            </button>
+                            <button class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+                                <i class="fas fa-download mr-2"></i>Exportar
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Stats Cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Total Enviados</p>
+                                    <p class="text-3xl font-bold text-gray-900 mt-2">1,248</p>
+                                </div>
+                                <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-paper-plane text-blue-600 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Entregados</p>
+                                    <p class="text-3xl font-bold text-green-600 mt-2">1,195</p>
+                                </div>
+                                <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-check-circle text-green-600 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Fallidos</p>
+                                    <p class="text-3xl font-bold text-red-600 mt-2">53</p>
+                                </div>
+                                <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-times-circle text-red-600 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Tasa de Éxito</p>
+                                    <p class="text-3xl font-bold text-blue-600 mt-2">95.8%</p>
+                                </div>
+                                <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-chart-line text-blue-600 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                            <div>
+                                <select class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                    <option value="">Estado</option>
+                                    <option value="sent">Enviado</option>
+                                    <option value="delivered">Entregado</option>
+                                    <option value="failed">Fallido</option>
+                                    <option value="bounced">Rebotado</option>
+                                </select>
+                            </div>
+                            <div>
+                                <input type="date" 
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                       placeholder="Fecha desde">
+                            </div>
+                            <div>
+                                <input type="date" 
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                       placeholder="Fecha hasta">
+                            </div>
+                            <div>
+                                <input type="text" 
+                                       placeholder="Buscar destinatario..."
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                            </div>
+                            <div>
+                                <button class="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+                                    <i class="fas fa-filter mr-2"></i>Filtrar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Email Logs Table -->
+                    <div class="card bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha/Hora</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Destinatario</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Asunto</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plantilla</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">2024-11-04 10:30</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-gray-900">juan.perez@email.com</div>
+                                            <div class="text-xs text-gray-500">Juan Pérez</div>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <div class="text-sm text-gray-900">Bienvenido a nuestro proceso</div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">Bienvenida Candidato</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                                <i class="fas fa-check-circle mr-1"></i>Entregado
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                            <button class="text-blue-600 hover:text-blue-900" title="Ver detalles">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">2024-11-04 10:25</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-gray-900">maria.g@email.com</div>
+                                            <div class="text-xs text-gray-500">María González</div>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <div class="text-sm text-gray-900">Tu candidatura ha sido aprobada</div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">Aprobación</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                                <i class="fas fa-times-circle mr-1"></i>Fallido
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                            <button class="text-blue-600 hover:text-blue-900" title="Ver detalles">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            <button class="text-green-600 hover:text-green-900" title="Reenviar">
+                                                <i class="fas fa-redo"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">2024-11-04 10:20</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-gray-900">carlos.r@email.com</div>
+                                            <div class="text-xs text-gray-500">Carlos Rodríguez</div>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <div class="text-sm text-gray-900">Entrevista programada</div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">Invitación Entrevista</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                                <i class="fas fa-check-circle mr-1"></i>Entregado
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                            <button class="text-blue-600 hover:text-blue-900" title="Ver detalles">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Pagination -->
+                        <div class="bg-gray-50 px-6 py-3 flex items-center justify-between border-t border-gray-200">
+                            <div class="flex-1 flex justify-between sm:hidden">
+                                <button class="px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50">
+                                    Anterior
+                                </button>
+                                <button class="ml-3 px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50">
+                                    Siguiente
+                                </button>
+                            </div>
+                            <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                                <div>
+                                    <p class="text-sm text-gray-700">
+                                        Mostrando <span class="font-medium">1</span> a <span class="font-medium">10</span> de{' '}
+                                        <span class="font-medium">1,248</span> resultados
+                                    </p>
+                                </div>
+                                <div>
+                                    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                                        <button class="px-3 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                            Anterior
+                                        </button>
+                                        <button class="px-4 py-2 border border-gray-300 bg-primary-50 text-sm font-medium text-primary-600">
+                                            1
+                                        </button>
+                                        <button class="px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                            2
+                                        </button>
+                                        <button class="px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                            3
+                                        </button>
+                                        <button class="px-3 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                            Siguiente
+                                        </button>
+                                    </nav>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════════ -->
+                <!-- EVALUATION TEMPLATES VIEW -->
+                <!-- ═══════════════════════════════════════════════════════ -->
+                <div x-show="currentView === 'evaluation-templates'" x-transition class="space-y-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-3xl font-bold text-gray-900">Plantillas de Evaluación</h2>
+                            <p class="text-gray-600 mt-1">Gestiona las plantillas de evaluación para candidatos</p>
+                        </div>
+                        <button class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+                            <i class="fas fa-plus mr-2"></i>Nueva Plantilla
+                        </button>
+                    </div>
+
+                    <!-- Stats Cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Total Plantillas</p>
+                                    <p class="text-3xl font-bold text-gray-900 mt-2">24</p>
+                                </div>
+                                <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-clipboard-list text-blue-600 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Activas</p>
+                                    <p class="text-3xl font-bold text-green-600 mt-2">18</p>
+                                </div>
+                                <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-check-circle text-green-600 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Más Usada</p>
+                                    <p class="text-sm font-medium text-gray-900 mt-2">Técnica General</p>
+                                </div>
+                                <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-star text-purple-600 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Evaluaciones</p>
+                                    <p class="text-3xl font-bold text-blue-600 mt-2">450</p>
+                                </div>
+                                <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-chart-bar text-blue-600 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Templates Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- Template Card 1 -->
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-code text-blue-600 text-xl"></i>
+                                </div>
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Activa</span>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2">Evaluación Técnica General</h3>
+                            <p class="text-sm text-gray-600 mb-4">Evaluación de habilidades técnicas básicas para desarrollo de software</p>
+                            <div class="space-y-2 mb-4">
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-question-circle text-gray-400 mr-2"></i>
+                                    <span>15 preguntas</span>
+                                </div>
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-clock text-gray-400 mr-2"></i>
+                                    <span>60 minutos</span>
+                                </div>
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-chart-line text-gray-400 mr-2"></i>
+                                    <span>Usado 125 veces</span>
+                                </div>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">
+                                    <i class="fas fa-edit mr-1"></i>Editar
+                                </button>
+                                <button class="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50" title="Duplicar">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                                <button class="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50" title="Vista previa">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Template Card 2 -->
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-users text-purple-600 text-xl"></i>
+                                </div>
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Activa</span>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2">Evaluación de Liderazgo</h3>
+                            <p class="text-sm text-gray-600 mb-4">Evalúa habilidades de liderazgo y gestión de equipos</p>
+                            <div class="space-y-2 mb-4">
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-question-circle text-gray-400 mr-2"></i>
+                                    <span>20 preguntas</span>
+                                </div>
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-clock text-gray-400 mr-2"></i>
+                                    <span>45 minutos</span>
+                                </div>
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-chart-line text-gray-400 mr-2"></i>
+                                    <span>Usado 87 veces</span>
+                                </div>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">
+                                    <i class="fas fa-edit mr-1"></i>Editar
+                                </button>
+                                <button class="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50" title="Duplicar">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                                <button class="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50" title="Vista previa">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Template Card 3 -->
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-language text-green-600 text-xl"></i>
+                                </div>
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">Borrador</span>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2">Evaluación de Idiomas</h3>
+                            <p class="text-sm text-gray-600 mb-4">Evalúa nivel de inglés para posiciones internacionales</p>
+                            <div class="space-y-2 mb-4">
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-question-circle text-gray-400 mr-2"></i>
+                                    <span>30 preguntas</span>
+                                </div>
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-clock text-gray-400 mr-2"></i>
+                                    <span>90 minutos</span>
+                                </div>
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-chart-line text-gray-400 mr-2"></i>
+                                    <span>Usado 42 veces</span>
+                                </div>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">
+                                    <i class="fas fa-edit mr-1"></i>Editar
+                                </button>
+                                <button class="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50" title="Duplicar">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                                <button class="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50" title="Vista previa">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════════ -->
+                <!-- DOCUMENT TEMPLATES VIEW -->
+                <!-- ═══════════════════════════════════════════════════════ -->
+                <div x-show="currentView === 'document-templates'" x-transition class="space-y-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-3xl font-bold text-gray-900">Plantillas de Documentos</h2>
+                            <p class="text-gray-600 mt-1">Gestiona las plantillas de documentos legales y contratos</p>
+                        </div>
+                        <button class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+                            <i class="fas fa-plus mr-2"></i>Nueva Plantilla
+                        </button>
+                    </div>
+
+                    <!-- Stats Cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Total Plantillas</p>
+                                    <p class="text-3xl font-bold text-gray-900 mt-2">16</p>
+                                </div>
+                                <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-file-contract text-blue-600 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Activas</p>
+                                    <p class="text-3xl font-bold text-green-600 mt-2">14</p>
+                                </div>
+                                <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-check-circle text-green-600 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Docs Generados</p>
+                                    <p class="text-3xl font-bold text-blue-600 mt-2">342</p>
+                                </div>
+                                <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-file-pdf text-blue-600 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Este Mes</p>
+                                    <p class="text-3xl font-bold text-purple-600 mt-2">48</p>
+                                </div>
+                                <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-calendar text-purple-600 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Categories Tabs -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                        <div class="flex space-x-2 overflow-x-auto">
+                            <button class="px-4 py-2 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium whitespace-nowrap">
+                                Todos (16)
+                            </button>
+                            <button class="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg text-sm font-medium whitespace-nowrap">
+                                Contratos (8)
+                            </button>
+                            <button class="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg text-sm font-medium whitespace-nowrap">
+                                Ofertas (4)
+                            </button>
+                            <button class="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg text-sm font-medium whitespace-nowrap">
+                                Cartas (4)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Templates Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- Template Card 1 -->
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-file-pdf text-red-600 text-xl"></i>
+                                </div>
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Activa</span>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2">Contrato de Trabajo</h3>
+                            <p class="text-sm text-gray-600 mb-4">Contrato laboral estándar por tiempo indeterminado</p>
+                            <div class="space-y-2 mb-4">
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-tag text-gray-400 mr-2"></i>
+                                    <span>Contratos</span>
+                                </div>
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-calendar text-gray-400 mr-2"></i>
+                                    <span>Actualizado 15 Oct 2024</span>
+                                </div>
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-chart-line text-gray-400 mr-2"></i>
+                                    <span>Generado 156 veces</span>
+                                </div>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">
+                                    <i class="fas fa-edit mr-1"></i>Editar
+                                </button>
+                                <button class="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50" title="Vista previa">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50" title="Descargar">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Template Card 2 -->
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-file-contract text-blue-600 text-xl"></i>
+                                </div>
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Activa</span>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2">Carta Oferta</h3>
+                            <p class="text-sm text-gray-600 mb-4">Carta formal de oferta de empleo</p>
+                            <div class="space-y-2 mb-4">
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-tag text-gray-400 mr-2"></i>
+                                    <span>Ofertas</span>
+                                </div>
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-calendar text-gray-400 mr-2"></i>
+                                    <span>Actualizado 20 Oct 2024</span>
+                                </div>
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-chart-line text-gray-400 mr-2"></i>
+                                    <span>Generado 89 veces</span>
+                                </div>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">
+                                    <i class="fas fa-edit mr-1"></i>Editar
+                                </button>
+                                <button class="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50" title="Vista previa">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50" title="Descargar">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Template Card 3 -->
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-file-alt text-green-600 text-xl"></i>
+                                </div>
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Activa</span>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2">Confidencialidad (NDA)</h3>
+                            <p class="text-sm text-gray-600 mb-4">Acuerdo de confidencialidad y no divulgación</p>
+                            <div class="space-y-2 mb-4">
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-tag text-gray-400 mr-2"></i>
+                                    <span>Legales</span>
+                                </div>
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-calendar text-gray-400 mr-2"></i>
+                                    <span>Actualizado 10 Oct 2024</span>
+                                </div>
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-chart-line text-gray-400 mr-2"></i>
+                                    <span>Generado 97 veces</span>
+                                </div>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">
+                                    <i class="fas fa-edit mr-1"></i>Editar
+                                </button>
+                                <button class="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50" title="Vista previa">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50" title="Descargar">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════════ -->
+                <!-- BACKUPS VIEW -->
+                <!-- ═══════════════════════════════════════════════════════ -->
+                <div x-show="currentView === 'backups'" x-transition class="space-y-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-3xl font-bold text-gray-900">Gestión de Backups</h2>
+                            <p class="text-gray-600 mt-1">Respaldos automáticos y manuales del sistema</p>
+                        </div>
+                        <button class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+                            <i class="fas fa-plus mr-2"></i>Crear Backup
+                        </button>
+                    </div>
+
+                    <!-- Backup Stats -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Último Backup</p>
+                                    <p class="text-2xl font-bold text-gray-900 mt-2">Hoy, 2:00 AM</p>
+                                </div>
+                                <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-check-circle text-green-600 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Total Backups</p>
+                                    <p class="text-2xl font-bold text-gray-900 mt-2">30</p>
+                                </div>
+                                <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-database text-blue-600 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Espacio Usado</p>
+                                    <p class="text-2xl font-bold text-gray-900 mt-2">72 GB</p>
+                                </div>
+                                <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-hdd text-yellow-600 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Backups List -->
+                    <div class="card bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Archivo</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tamaño</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <template x-for="backup in backups" :key="backup.id">
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="flex items-center">
+                                                    <i class="fas fa-file-archive text-gray-400 mr-2"></i>
+                                                    <span class="text-sm font-medium text-gray-900" x-text="backup.filename"></span>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600" x-text="backup.size"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span :class="backup.type === 'automatic' ? 'bg-blue-100 text-blue-800' : 'bg-cyan-100 text-cyan-800'" 
+                                                      class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full" 
+                                                      x-text="backup.type === 'automatic' ? 'Automático' : 'Manual'"></span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600" x-text="backup.timestamp"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span :class="backup.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" 
+                                                      class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full">
+                                                    <i :class="backup.status === 'completed' ? 'fas fa-check-circle' : 'fas fa-times-circle'" class="mr-1"></i>
+                                                    <span x-text="backup.status === 'completed' ? 'Completado' : 'Fallido'"></span>
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                                <button class="text-primary-600 hover:text-primary-900">
+                                                    <i class="fas fa-download"></i>
+                                                </button>
+                                                <button class="text-blue-600 hover:text-blue-900">
+                                                    <i class="fas fa-redo"></i>
+                                                </button>
+                                                <button class="text-red-600 hover:text-red-900">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════════ -->
+                <!-- MONITORING VIEW -->
+                <!-- ═══════════════════════════════════════════════════════ -->
+                <div x-show="currentView === 'monitoring'" x-transition class="space-y-6">
+                    <div>
+                        <h2 class="text-3xl font-bold text-gray-900">Monitoreo del Sistema</h2>
+                        <p class="text-gray-600 mt-1">Métricas en tiempo real del servidor</p>
+                    </div>
+
+                    <!-- Real-time Metrics -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-sm font-medium text-gray-600">CPU Usage</h3>
+                                <span class="text-2xl font-bold" :class="stats.cpuUsage > 80 ? 'text-red-600' : 'text-green-600'" x-text="stats.cpuUsage + '%'"></span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="h-2 rounded-full transition-all duration-300" 
+                                     :class="stats.cpuUsage > 80 ? 'bg-red-600' : 'bg-green-600'"
+                                     :style="`width: ${stats.cpuUsage}%`"></div>
+                            </div>
+                        </div>
+
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-sm font-medium text-gray-600">Memory Usage</h3>
+                                <span class="text-2xl font-bold" :class="stats.memoryUsage > 80 ? 'text-red-600' : 'text-blue-600'" x-text="stats.memoryUsage + '%'"></span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="h-2 rounded-full transition-all duration-300" 
+                                     :class="stats.memoryUsage > 80 ? 'bg-red-600' : 'bg-blue-600'"
+                                     :style="`width: ${stats.memoryUsage}%`"></div>
+                            </div>
+                        </div>
+
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-sm font-medium text-gray-600">Requests/min</h3>
+                                <span class="text-2xl font-bold text-blue-600" x-text="stats.requestsPerMinute"></span>
+                            </div>
+                            <div class="flex items-center text-sm">
+                                <span class="text-green-600 font-medium">↑ 12%</span>
+                                <span class="text-gray-500 ml-2">vs última hora</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Performance Charts -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">CPU & Memory (24h)</h3>
+                            <div class="h-64">
+                                <canvas id="systemMetricsChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Request Rate (24h)</h3>
+                            <div class="h-64">
+                                <canvas id="requestRateChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- System Alerts -->
+                    <div class="card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Alertas del Sistema</h3>
+                        <div class="space-y-3">
+                            <template x-for="alert in systemAlerts" :key="alert.id">
+                                <div class="flex items-start p-4 rounded-lg" 
+                                     :class="alert.level === 'error' ? 'bg-red-50 border border-red-200' : alert.level === 'warning' ? 'bg-yellow-50 border border-yellow-200' : 'bg-blue-50 border border-blue-200'">
+                                    <div class="flex-shrink-0">
+                                        <i :class="alert.level === 'error' ? 'fas fa-exclamation-circle text-red-600' : alert.level === 'warning' ? 'fas fa-exclamation-triangle text-yellow-600' : 'fas fa-info-circle text-blue-600'" 
+                                           class="text-xl"></i>
+                                    </div>
+                                    <div class="ml-3 flex-1">
+                                        <h4 class="text-sm font-medium" 
+                                            :class="alert.level === 'error' ? 'text-red-800' : alert.level === 'warning' ? 'text-yellow-800' : 'text-blue-800'" 
+                                            x-text="alert.title"></h4>
+                                        <p class="mt-1 text-sm" 
+                                           :class="alert.level === 'error' ? 'text-red-700' : alert.level === 'warning' ? 'text-yellow-700' : 'text-blue-700'" 
+                                           x-text="alert.message"></p>
+                                        <p class="mt-1 text-xs" 
+                                           :class="alert.level === 'error' ? 'text-red-600' : alert.level === 'warning' ? 'text-yellow-600' : 'text-blue-600'" 
+                                           x-text="alert.timestamp"></p>
+                                    </div>
+                                    <button x-show="!alert.resolved" 
+                                            @click="resolveAlert(alert)" 
+                                            class="ml-3 text-sm font-medium" 
+                                            :class="alert.level === 'error' ? 'text-red-600 hover:text-red-700' : alert.level === 'warning' ? 'text-yellow-600 hover:text-yellow-700' : 'text-blue-600 hover:text-blue-700'">
+                                        Resolver
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+
+        <!-- User Modal -->
+        <div x-show="showUserModal" 
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50"
+             @click.self="showUserModal = false">
+            <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-lg bg-white">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900" x-text="editingUser ? 'Editar Usuario' : 'Crear Usuario'"></h3>
+                    <button @click="showUserModal = false" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <form @submit.prevent="saveUser()" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nombre Completo</label>
+                        <input type="text" 
+                               x-model="userForm.name"
+                               required
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input type="email" 
+                               x-model="userForm.email"
+                               required
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Rol</label>
+                        <select x-model="userForm.role" 
+                                required
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                            <option value="">Seleccionar rol</option>
+                            <option value="director">Director</option>
+                            <option value="supervisor">Supervisor</option>
+                            <option value="admin">Administrador</option>
+                        </select>
+                    </div>
+                    
+                    <div x-show="!editingUser">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+                        <input type="password" 
+                               x-model="userForm.password"
+                               :required="!editingUser"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    </div>
+                    
+                    <div class="flex items-center">
+                        <input type="checkbox" 
+                               x-model="userForm.active"
+                               id="userActive"
+                               class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
+                        <label for="userActive" class="ml-2 block text-sm text-gray-900">
+                            Usuario Activo
+                        </label>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3 mt-6">
+                        <button type="button" 
+                                @click="showUserModal = false" 
+                                class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                            Cancelar
+                        </button>
+                        <button type="submit" 
+                                class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+                            Guardar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alpine.js Application Logic -->
+    <script>
+        function adminApp() {
+            return {
+                // State
+                loading: true,
+                currentView: 'dashboard',
+                sidebarOpen: false,
+                showUserModal: false,
+                editingUser: null,
+                
+                // Data
+                stats: {},
+                users: [],
+                logs: [],
+                emailTemplates: [],
+                backups: [],
+                systemAlerts: [],
+                recentActivity: [],
+                notifications: [],
+                
+                // Filters
+                userFilters: {
+                    search: '',
+                    role: '',
+                    status: ''
+                },
+                
+                // Form
+                userForm: {
+                    name: '',
+                    email: '',
+                    role: '',
+                    password: '',
+                    active: true
+                },
+                
+                // Charts
+                performanceChart: null,
+                activityChart: null,
+                systemMetricsChart: null,
+                requestRateChart: null,
+                
+                // Initialize
+                async init() {
+                    await this.loadDashboardData();
+                    this.loading = false;
+                    this.$nextTick(() => {
+                        this.setupCharts();
+                    });
+                },
+                
+                // Load Data
+                async loadDashboardData() {
+                    try {
+                        // Mock data - Replace with API calls
+                        this.stats = {
+                            totalUsers: 25,
+                            activeUsers: 18,
+                            activeSessions: 8,
+                            todaySessions: 15,
+                            systemAlerts: 3,
+                            criticalAlerts: 0,
+                            diskUsage: 45,
+                            diskUsed: '450GB',
+                            diskTotal: '1TB',
+                            cpuUsage: 52,
+                            memoryUsage: 62,
+                            requestsPerMinute: 125
+                        };
+                        
+                        this.users = [
+                            {
+                                id: 1,
+                                name: 'Juan Director',
+                                initials: 'JD',
+                                email: 'juan@company.com',
+                                role: 'director',
+                                status: 'active',
+                                lastLogin: 'Hace 2 horas'
+                            },
+                            {
+                                id: 2,
+                                name: 'María Admin',
+                                initials: 'MA',
+                                email: 'maria.admin@company.com',
+                                role: 'admin',
+                                status: 'active',
+                                lastLogin: 'Hace 1 hora'
+                            },
+                            {
+                                id: 3,
+                                name: 'Carlos Supervisor',
+                                initials: 'CS',
+                                email: 'carlos@company.com',
+                                role: 'supervisor',
+                                status: 'active',
+                                lastLogin: 'Ayer'
+                            }
+                        ];
+                        
+                        this.logs = [
+                            {
+                                id: 1,
+                                timestamp: '2024-11-04 10:30:15',
+                                level: 'info',
+                                type: 'authentication',
+                                user: 'juan@company.com',
+                                action: 'LOGIN',
+                                details: 'Successful login'
+                            },
+                            {
+                                id: 2,
+                                timestamp: '2024-11-04 10:25:30',
+                                level: 'info',
+                                type: 'crud',
+                                user: 'maria.admin@company.com',
+                                action: 'CREATE',
+                                details: 'Created new user account'
+                            },
+                            {
+                                id: 3,
+                                timestamp: '2024-11-04 10:20:45',
+                                level: 'error',
+                                type: 'api',
+                                user: 'carlos@company.com',
+                                action: 'API_ERROR',
+                                details: 'Database connection timeout'
+                            }
+                        ];
+                        
+                        this.emailTemplates = [
+                            {
+                                id: 1,
+                                name: 'Bienvenida Candidato',
+                                subject: 'Bienvenido a nuestro proceso',
+                                usageCount: 450,
+                                lastModified: '15 Oct 2024',
+                                status: 'active'
+                            },
+                            {
+                                id: 2,
+                                name: 'Aprobación',
+                                subject: 'Tu candidatura ha sido aprobada',
+                                usageCount: 120,
+                                lastModified: '20 Oct 2024',
+                                status: 'active'
+                            }
+                        ];
+                        
+                        this.backups = [
+                            {
+                                id: 1,
+                                filename: 'backup_2024-11-04_02-00.sql.gz',
+                                size: '2.4 GB',
+                                type: 'automatic',
+                                timestamp: '04 Nov 2024, 02:00',
+                                status: 'completed'
+                            },
+                            {
+                                id: 2,
+                                filename: 'backup_2024-11-03_02-00.sql.gz',
+                                size: '2.3 GB',
+                                type: 'automatic',
+                                timestamp: '03 Nov 2024, 02:00',
+                                status: 'completed'
+                            }
+                        ];
+                        
+                        this.systemAlerts = [
+                            {
+                                id: 1,
+                                level: 'warning',
+                                title: 'Alto uso de CPU',
+                                message: 'El uso de CPU ha superado el 80%',
+                                timestamp: 'Hace 15 min',
+                                resolved: false
+                            },
+                            {
+                                id: 2,
+                                level: 'info',
+                                title: 'Backup completado',
+                                message: 'Backup automático ejecutado correctamente',
+                                timestamp: 'Hace 2 horas',
+                                resolved: true
+                            }
+                        ];
+                        
+                        this.recentActivity = [
+                            {
+                                id: 1,
+                                user: 'Juan Director',
+                                action: 'inició sesión',
+                                icon: 'fas fa-sign-in-alt',
+                                time: 'Hace 5 min',
+                                status: 'Exitoso',
+                                statusColor: 'bg-green-100 text-green-800'
+                            },
+                            {
+                                id: 2,
+                                user: 'María Admin',
+                                action: 'creó un usuario',
+                                icon: 'fas fa-user-plus',
+                                time: 'Hace 15 min',
+                                status: 'Completado',
+                                statusColor: 'bg-blue-100 text-blue-800'
+                            }
+                        ];
+                        
+                    } catch (error) {
+                        console.error('Error loading data:', error);
+                    }
+                },
+                
+                // Setup Charts
+                setupCharts() {
+                    // Performance Chart
+                    const perfCtx = document.getElementById('performanceChart');
+                    if (perfCtx) {
+                        this.performanceChart = new Chart(perfCtx, {
+                            type: 'line',
+                            data: {
+                                labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'],
+                                datasets: [
+                                    {
+                                        label: 'CPU %',
+                                        data: [45, 52, 48, 65, 58, 52],
+                                        borderColor: '#3b82f6',
+                                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                        tension: 0.4
+                                    },
+                                    {
+                                        label: 'Memory %',
+                                        data: [60, 62, 58, 72, 68, 62],
+                                        borderColor: '#60a5fa',
+                                        backgroundColor: 'rgba(96, 165, 250, 0.1)',
+                                        tension: 0.4
+                                    }
+                                ]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: {
+                                        position: 'bottom'
+                                    }
+                                }
+                            }
+                        });
+                    }
+                    
+                    // Activity Chart
+                    const actCtx = document.getElementById('activityChart');
+                    if (actCtx) {
+                        this.activityChart = new Chart(actCtx, {
+                            type: 'bar',
+                            data: {
+                                labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+                                datasets: [{
+                                    label: 'Usuarios Activos',
+                                    data: [12, 19, 15, 17, 22, 8, 5],
+                                    backgroundColor: '#3b82f6'
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: {
+                                        position: 'bottom'
+                                    }
+                                }
+                            }
+                        });
+                    }
+                    
+                    // System Metrics Chart
+                    const metricsCtx = document.getElementById('systemMetricsChart');
+                    if (metricsCtx) {
+                        this.systemMetricsChart = new Chart(metricsCtx, {
+                            type: 'line',
+                            data: {
+                                labels: Array.from({length: 24}, (_, i) => `${i}:00`),
+                                datasets: [
+                                    {
+                                        label: 'CPU',
+                                        data: Array.from({length: 24}, () => Math.floor(Math.random() * 40) + 40),
+                                        borderColor: '#ef4444',
+                                        tension: 0.4
+                                    },
+                                    {
+                                        label: 'Memory',
+                                        data: Array.from({length: 24}, () => Math.floor(Math.random() * 30) + 50),
+                                        borderColor: '#3b82f6',
+                                        tension: 0.4
+                                    }
+                                ]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false
+                            }
+                        });
+                    }
+                    
+                    // Request Rate Chart
+                    const reqCtx = document.getElementById('requestRateChart');
+                    if (reqCtx) {
+                        this.requestRateChart = new Chart(reqCtx, {
+                            type: 'line',
+                            data: {
+                                labels: Array.from({length: 24}, (_, i) => `${i}:00`),
+                                datasets: [{
+                                    label: 'Requests/min',
+                                    data: Array.from({length: 24}, () => Math.floor(Math.random() * 100) + 50),
+                                    borderColor: '#3b82f6',
+                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                    fill: true,
+                                    tension: 0.4
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false
+                            }
+                        });
+                    }
+                },
+                
+                // Navigation
+                setView(view) {
+                    this.currentView = view;
+                    this.sidebarOpen = false;
+                },
+                
+                getNavItemClass(view) {
+                    return this.currentView === view 
+                        ? 'bg-primary-50 text-primary-700'
+                        : 'text-gray-700 hover:bg-gray-50';
+                },
+                
+                // User Management
+                openUserModal(user) {
+                    if (user) {
+                        this.editingUser = user;
+                        this.userForm = {
+                            name: user.name,
+                            email: user.email,
+                            role: user.role,
+                            password: '',
+                            active: user.status === 'active'
+                        };
+                    } else {
+                        this.editingUser = null;
+                        this.userForm = {
+                            name: '',
+                            email: '',
+                            role: '',
+                            password: '',
+                            active: true
+                        };
+                    }
+                    this.showUserModal = true;
+                },
+                
+                saveUser() {
+                    console.log('Saving user:', this.userForm);
+                    // API call would go here
+                    this.showUserModal = false;
+                    alert(this.editingUser ? 'Usuario actualizado' : 'Usuario creado');
+                },
+                
+                toggleUserStatus(user) {
+                    user.status = user.status === 'active' ? 'inactive' : 'active';
+                    alert(`Usuario ${user.status === 'active' ? 'activado' : 'desactivado'}`);
+                },
+                
+                deleteUser(user) {
+                    if (confirm(`¿Eliminar usuario ${user.name}?`)) {
+                        this.users = this.users.filter(u => u.id !== user.id);
+                        alert('Usuario eliminado');
+                    }
+                },
+                
+                // Helpers
+                getRoleBadgeClass(role) {
+                    const classes = {
+                        'director': 'bg-blue-100 text-blue-800',
+                        'admin': 'bg-blue-100 text-blue-800',
+                        'supervisor': 'bg-green-100 text-green-800'
+                    };
+                    return classes[role] || 'bg-gray-100 text-gray-800';
+                },
+                
+                getRoleIcon(role) {
+                    const icons = {
+                        'director': 'fas fa-user-tie',
+                        'admin': 'fas fa-user-cog',
+                        'supervisor': 'fas fa-user-check'
+                    };
+                    return icons[role] || 'fas fa-user';
+                },
+                
+                getRoleLabel(role) {
+                    const labels = {
+                        'director': 'Director',
+                        'admin': 'Admin',
+                        'supervisor': 'Supervisor'
+                    };
+                    return labels[role] || role;
+                },
+                
+                getLogLevelClass(level) {
+                    const classes = {
+                        'info': 'bg-blue-100 text-blue-800',
+                        'warning': 'bg-yellow-100 text-yellow-800',
+                        'error': 'bg-red-100 text-red-800',
+                        'critical': 'bg-red-200 text-red-900'
+                    };
+                    return classes[level] || 'bg-gray-100 text-gray-800';
+                },
+                
+                // Actions
+                refreshDashboard() {
+                    this.loading = true;
+                    setTimeout(() => {
+                        this.loadDashboardData();
+                        this.loading = false;
+                        alert('Dashboard actualizado');
+                    }, 1000);
+                },
+                
+                refreshEmailLogs() {
+                    alert('Actualizando logs de emails...');
+                    // En producción: await this.api.getEmailLogs()
+                },
+                
+                applyUserFilters() {
+                    console.log('Applying filters:', this.userFilters);
+                    alert('Filtros aplicados');
+                },
+                
+                resolveAlert(alert) {
+                    alert.resolved = true;
+                    alert('Alerta resuelta');
+                }
+            }
+        }
+    </script>
+</body>
+</html>
