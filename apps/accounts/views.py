@@ -4,6 +4,7 @@ Views para la app de Accounts
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth import get_user_model
 from .models import UserActivity
 from .serializers import (
@@ -11,7 +12,8 @@ from .serializers import (
     UserCreateSerializer,
     UserUpdateSerializer,
     ChangePasswordSerializer,
-    UserActivitySerializer
+    UserActivitySerializer,
+    CustomTokenObtainPairSerializer
 )
 from .permissions import IsAdminOrDirector, IsOwnerOrAdmin
 
@@ -166,3 +168,8 @@ class UserActivityViewSet(viewsets.ReadOnlyModelViewSet):
             queryset = queryset.filter(user_id=user_id)
         
         return queryset.select_related('user')
+
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    """Vista JWT personalizada que utiliza nuestro serializer customizado"""
+    serializer_class = CustomTokenObtainPairSerializer

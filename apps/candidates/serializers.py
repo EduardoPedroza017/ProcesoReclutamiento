@@ -22,6 +22,7 @@ class CandidateDocumentSerializer(serializers.ModelSerializer):
         model = CandidateDocument
         fields = [
             'id',
+            'candidate',
             'document_type',
             'file',
             'file_url',
@@ -53,6 +54,7 @@ class CandidateNoteSerializer(serializers.ModelSerializer):
         model = CandidateNote
         fields = [
             'id',
+            'candidate',
             'note',
             'is_important',
             'created_by',

@@ -931,3 +931,193 @@ def recruitment_funnel(request):
         },
         'conversion_rates': conversion_rates,
     })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsDirectorOrAbove])
+def celery_tasks_status(request):
+    """
+    Obtiene el estado de las tareas de Celery
+    GET /api/director/celery-tasks/
+    
+    Retorna información sobre tareas en ejecución, completadas y fallidas
+    """
+    from celery import current_app
+    from django_celery_results.models import TaskResult
+    from django.db.models import Count, Q
+    from datetime import datetime, timedelta
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    # Inicializar valores por defecto
+    active_count = 0
+    active_details = []
+    scheduled_count = 0
+    scheduled_details = []
+    workers_info = []
+    
+    try:
+        # Obtener información del inspector de Celery
+        inspect = current_app.control.inspect()
+        
+        # Tareas activas
+        active_tasks = inspect.active()
+        if active_tasks:
+            for worker, tasks in active_tasks.items():
+                active_count += len(tasks)
+                for task in tasks:
+                    active_details.append({
+                        'id': task['id'],
+                        'name': task['name'],
+                        'worker': worker,
+                        'args': task.get('args', []),
+                        'kwargs': task.get('kwargs', {}),
+                    })
+        
+        # Tareas programadas
+        scheduled_tasks = inspect.scheduled()
+        if scheduled_tasks:
+            for worker, tasks in scheduled_tasks.items():
+                scheduled_count += len(tasks)
+                for task in tasks:
+                    scheduled_details.append({
+                        'id': task['request']['id'],
+                        'name': task['request']['task'],
+                        'worker': worker,
+                        'eta': task['eta'],
+                    })
+        
+        # Lista de workers
+        workers_info = list(active_tasks.keys()) if active_tasks else []
+        
+    except Exception as e:
+        logger.warning(f"No se pudo conectar con Celery inspector: {e}")
+        # Continuar con valores por defecto
+    
+    # Estadísticas de resultados de tareas (últimos 7 días)
+    seven_days_ago = timezone.now() - timedelta(days=7)
+    
+    task_stats = TaskResult.objects.filter(
+        date_created__gte=seven_days_ago
+    ).aggregate(
+        total_tasks=Count('id'),
+        successful_tasks=Count('id', filter=Q(status='SUCCESS')),
+        failed_tasks=Count('id', filter=Q(status='FAILURE')),
+        pending_tasks=Count('id', filter=Q(status='PENDING')),
+        retry_tasks=Count('id', filter=Q(status='RETRY')),
+    )
+    
+    # Tareas recientes (últimas 50)
+    recent_tasks = TaskResult.objects.filter(
+        date_created__gte=seven_days_ago
+    ).order_by('-date_created')[:50].values(
+        'task_id', 'task_name', 'status', 'result', 
+        'date_created', 'date_done', 'traceback'
+    )
+    
+    # Estadísticas por tipo de tarea
+    task_types = TaskResult.objects.filter(
+        date_created__gte=seven_days_ago
+    ).values('task_name').annotate(
+        total=Count('id'),
+        successful=Count('id', filter=Q(status='SUCCESS')),
+        failed=Count('id', filter=Q(status='FAILURE')),
+    ).order_by('-total')
+    
+    return Response({
+        'active_tasks': {
+            'count': active_count,
+            'tasks': active_details,
+        },
+        'scheduled_tasks': {
+            'count': scheduled_count,
+            'tasks': scheduled_details,
+        },
+        'statistics': task_stats,
+        'recent_tasks': list(recent_tasks),
+        'task_types': list(task_types),
+        'workers_status': {
+            'active_workers': len(workers_info),
+            'workers': workers_info,
+        }
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsDirectorOrAbove])
+def celery_task_groups(request):
+    """
+    Obtiene información agrupada de tareas por categoría
+    GET /api/director/celery-groups/
+    """
+    from django_celery_results.models import TaskResult
+    from datetime import datetime, timedelta
+    
+    # Últimos 30 días
+    thirty_days_ago = timezone.now() - timedelta(days=30)
+    
+    # Agrupar tareas por categorías principales
+    task_groups = {
+        'ai_services': {
+            'name': 'Servicios de IA',
+            'description': 'Análisis de CVs, matching y generación de perfiles',
+            'tasks': []
+        },
+        'documents': {
+            'name': 'Generación de Documentos',
+            'description': 'Creación de PDFs y reportes',
+            'tasks': []
+        },
+        'notifications': {
+            'name': 'Notificaciones',
+            'description': 'Envío de emails y notificaciones del sistema',
+            'tasks': []
+        },
+        'system': {
+            'name': 'Sistema',
+            'description': 'Tareas de mantenimiento y limpieza',
+            'tasks': []
+        }
+    }
+    
+    # Obtener estadísticas por grupo
+    for group_key, group_info in task_groups.items():
+        if group_key == 'ai_services':
+            task_filter = Q(task_name__startswith='apps.ai_services')
+        elif group_key == 'documents':
+            task_filter = Q(task_name__startswith='apps.documents')
+        elif group_key == 'notifications':
+            task_filter = Q(task_name__startswith='apps.notifications')
+        else:
+            # Tareas del sistema y otras
+            task_filter = ~Q(task_name__startswith='apps.')
+        
+        stats = TaskResult.objects.filter(
+            date_created__gte=thirty_days_ago
+        ).filter(task_filter).aggregate(
+            total=Count('id'),
+            successful=Count('id', filter=Q(status='SUCCESS')),
+            failed=Count('id', filter=Q(status='FAILURE')),
+            pending=Count('id', filter=Q(status='PENDING')),
+        )
+        
+        # Tareas recientes de este grupo
+        recent_tasks = TaskResult.objects.filter(
+            date_created__gte=thirty_days_ago
+        ).filter(task_filter).order_by('-date_created')[:10].values(
+            'task_id', 'task_name', 'status', 'date_created', 'date_done'
+        )
+        
+        group_info.update({
+            'statistics': stats,
+            'recent_tasks': list(recent_tasks)
+        })
+    
+    return Response({
+        'groups': task_groups,
+        'summary': {
+            'total_groups': len(task_groups),
+            'period': '30 días',
+        }
+    })

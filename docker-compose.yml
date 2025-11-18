@@ -36,7 +36,7 @@ services:
 
   # Django Application
   web:
-    build: .
+    image: eduardopedroza017/proyecto-reclutamiento-v01:v1.4.1
     container_name: recruitment_web
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
@@ -54,7 +54,7 @@ services:
 
   # Celery Worker
   celery:
-    build: .
+    image: eduardopedroza017/proyecto-reclutamiento-v01:v1.4.1
     container_name: recruitment_celery
     command: celery -A config worker -l info
     volumes:
@@ -67,7 +67,7 @@ services:
 
   # Celery Beat (tareas programadas)
   celery-beat:
-    build: .
+    image: eduardopedroza017/proyecto-reclutamiento-v01:v1.4.1
     container_name: recruitment_celery_beat
     command: celery -A config beat -l info
     volumes:

@@ -60,6 +60,18 @@ urlpatterns = [
         director_views.recruitment_funnel,
         name='recruitment-funnel'
     ),
+    
+    # Monitoreo de tareas Celery
+    path(
+        'celery-tasks/',
+        director_views.celery_tasks_status,
+        name='celery-tasks'
+    ),
+    path(
+        'celery-groups/',
+        director_views.celery_task_groups,
+        name='celery-groups'
+    ),
 ]
 
 """

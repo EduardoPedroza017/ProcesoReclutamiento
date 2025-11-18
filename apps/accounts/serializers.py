@@ -2,6 +2,7 @@
 Serializers para la app de Accounts
 """
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.password_validation import validate_password
 from .models import User, UserActivity
 
@@ -117,4 +118,38 @@ class UserActivitySerializer(serializers.ModelSerializer):
             'id', 'user', 'user_email', 'user_name',
             'action', 'description', 'ip_address', 'timestamp'
         ]
+
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """Serializer JWT personalizado que incluye información del usuario en el token"""
+    
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        
+        # Añadir información personalizada al token
+        token['user_id'] = user.id
+        token['email'] = user.email
+        token['role'] = user.role
+        token['full_name'] = user.get_full_name()
+        
+        return token
+    
+    def validate(self, attrs):
+        """Validar credenciales y retornar información del usuario"""
+        data = super().validate(attrs)
+        
+        # Añadir información del usuario a la respuesta
+        data['user'] = {
+            'id': self.user.id,
+            'email': self.user.email,
+            'first_name': self.user.first_name,
+            'last_name': self.user.last_name,
+            'full_name': self.user.get_full_name(),
+            'role': self.user.role,
+            'role_display': self.user.get_role_display(),
+            'is_active': self.user.is_active,
+        }
+        
+        return data
         read_only_fields = ['id', 'timestamp']

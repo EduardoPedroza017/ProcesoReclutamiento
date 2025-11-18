@@ -3,7 +3,7 @@ URLs para la app de Accounts
 """
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import UserViewSet, UserActivityViewSet
+from .views import UserViewSet, UserActivityViewSet, CustomTokenObtainPairView
 
 # Router para ViewSets
 router = DefaultRouter()
@@ -14,4 +14,5 @@ app_name = 'accounts'
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('login/', CustomTokenObtainPairView.as_view(), name='login'),
 ]
