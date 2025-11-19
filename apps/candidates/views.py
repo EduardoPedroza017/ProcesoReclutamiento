@@ -11,6 +11,9 @@ from django.db.models import Count, Q
 from datetime import datetime, timedelta
 import csv
 import io
+import os
+import tempfile
+from django.core.files.storage import default_storage
 
 from .models import (
     Candidate,
@@ -32,6 +35,7 @@ from .serializers import (
     CandidateStatsSerializer,
     CandidateMatchSerializer,
     BulkCandidateUploadSerializer,
+    BulkCVUploadSerializer,
 )
 from apps.accounts.permissions import IsAdminOrDirector
 
@@ -98,6 +102,185 @@ class CandidateViewSet(viewsets.ModelViewSet):
         'years_of_experience',
     ]
     ordering = ['-created_at']
+    
+    
+
+
+    @action(detail=False, methods=['post'])
+    def bulk_upload_cvs(self, request):
+        """
+        Carga masiva de candidatos desde múltiples archivos CV
+        
+        Este endpoint permite:
+        1. Subir múltiples CVs (PDF/DOCX) a la vez
+        2. Analizar cada CV con IA automáticamente
+        3. Crear candidatos con toda la información extraída
+        4. (Opcional) Vincular a un perfil y calcular matching
+        
+        Body (form-data):
+        - files[]: Múltiples archivos CV (máximo 50)
+        - profile_id: ID del perfil (opcional)
+        
+        Proceso:
+        1. Valida los archivos
+        2. Guarda temporalmente
+        3. Procesa con IA en paralelo (Celery)
+        4. Crea candidatos automáticamente
+        5. Guarda CVs originales
+        6. Calcula matching si hay perfil
+        
+        Returns:
+            202 ACCEPTED con task_id para seguimiento
+            O 200 OK con resultados si el procesamiento es rápido
+        """
+        from .tasks import bulk_upload_cvs_task
+        from .serializers import BulkCVUploadSerializer
+        
+        # Validar request
+        serializer = BulkCVUploadSerializer(data=request.data)
+        
+        if not serializer.is_valid():
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        files = serializer.validated_data['files']
+        profile_id = serializer.validated_data.get('profile_id')
+        
+        # Información inicial
+        total_files = len(files)
+        
+        # Crear directorio temporal para almacenar los CVs
+        temp_dir = tempfile.mkdtemp()
+        cv_files_data = []
+        
+        try:
+            # Guardar archivos temporalmente
+            for cv_file in files:
+                # Generar nombre único para evitar conflictos
+                temp_filename = f"{timezone.now().timestamp()}_{cv_file.name}"
+                temp_path = os.path.join(temp_dir, temp_filename)
+                
+                # Guardar archivo
+                with open(temp_path, 'wb+') as destination:
+                    for chunk in cv_file.chunks():
+                        destination.write(chunk)
+                
+                cv_files_data.append({
+                    'path': temp_path,
+                    'filename': cv_file.name
+                })
+            
+            # Decidir si procesar síncrono o asíncrono
+            # Si son pocos archivos (≤3), procesar síncronamente
+            # Si son muchos, usar Celery para procesamiento asíncrono
+            
+            if total_files <= 3:
+                # Procesamiento síncrono (más rápido para pocos archivos)
+                from .tasks import process_single_cv_for_bulk_upload
+                
+                results = []
+                for cv_data in cv_files_data:
+                    result = process_single_cv_for_bulk_upload(
+                        cv_data['path'],
+                        cv_data['filename'],
+                        profile_id,
+                        request.user.id
+                    )
+                    results.append(result)
+                
+                # Procesar resultados
+                successful = [r for r in results if r['success']]
+                failed = [r for r in results if not r['success']]
+                
+                return Response({
+                    'message': 'Procesamiento completado',
+                    'total_processed': len(results),
+                    'successful': len(successful),
+                    'failed': len(failed),
+                    'created': len([r for r in successful if r.get('created', False)]),
+                    'updated': len([r for r in successful if not r.get('created', False)]),
+                    'results': {
+                        'successful': successful,
+                        'failed': failed
+                    }
+                }, status=status.HTTP_200_OK)
+            
+            else:
+                # Procesamiento asíncrono (para muchos archivos)
+                task = bulk_upload_cvs_task.delay(
+                    cv_files_data,
+                    profile_id,
+                    request.user.id
+                )
+                
+                return Response({
+                    'message': f'Procesamiento iniciado para {total_files} CVs',
+                    'task_id': task.id,
+                    'total_files': total_files,
+                    'status': 'processing',
+                    'note': 'Use el task_id para consultar el estado del procesamiento'
+                }, status=status.HTTP_202_ACCEPTED)
+        
+        except Exception as e:
+            # Limpiar archivos temporales en caso de error
+            import shutil
+            try:
+                shutil.rmtree(temp_dir)
+            except:
+                pass
+            
+            return Response({
+                'error': f'Error procesando archivos: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+    @action(detail=False, methods=['get'])
+    def bulk_upload_status(self, request):
+        """
+        Consultar el estado de una carga masiva en proceso
+        
+        Query params:
+        - task_id: ID de la tarea Celery
+        
+        Returns:
+            Estado actual del procesamiento
+        """
+        from celery.result import AsyncResult
+        
+        task_id = request.query_params.get('task_id')
+        
+        if not task_id:
+            return Response(
+                {'error': 'task_id es requerido'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        task_result = AsyncResult(task_id)
+        
+        if task_result.ready():
+            # Tarea completada
+            result = task_result.result
+            
+            if task_result.successful():
+                return Response({
+                    'status': 'completed',
+                    'result': result
+                })
+            else:
+                return Response({
+                    'status': 'failed',
+                    'error': str(result)
+                })
+        else:
+            # Tarea aún en proceso
+            return Response({
+                'status': 'processing',
+                'state': task_result.state,
+                'info': task_result.info
+            })
+
     
     def get_queryset(self):
         """

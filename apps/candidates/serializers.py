@@ -326,3 +326,82 @@ class BulkCandidateUploadSerializer(serializers.Serializer):
         if not value.name.endswith('.csv'):
             raise serializers.ValidationError("El archivo debe ser CSV")
         return value
+    
+    
+"""
+Serializer adicional para carga masiva de CVs
+Agregar este código al archivo apps/candidates/serializers.py
+"""
+
+from rest_framework import serializers
+
+
+class BulkCVUploadSerializer(serializers.Serializer):
+    """
+    Serializer para carga masiva de CVs
+    
+    Permite subir múltiples archivos PDF/DOCX a la vez
+    """
+    
+    files = serializers.ListField(
+        child=serializers.FileField(),
+        required=True,
+        min_length=1,
+        max_length=50,
+        help_text='Lista de archivos CV (PDF o DOCX). Máximo 50 archivos.'
+    )
+    
+    profile_id = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        help_text='ID del perfil al que asignar los candidatos (opcional)'
+    )
+    
+    def validate_files(self, value):
+        """Valida cada archivo en la lista"""
+        allowed_extensions = ['.pdf', '.docx']
+        max_size = 10 * 1024 * 1024  # 10MB
+        
+        for file in value:
+            # Validar extensión
+            file_extension = file.name.lower()[file.name.rfind('.'):]
+            if file_extension not in allowed_extensions:
+                raise serializers.ValidationError(
+                    f"Archivo '{file.name}': Formato no soportado. Use PDF o DOCX."
+                )
+            
+            # Validar tamaño
+            if file.size > max_size:
+                raise serializers.ValidationError(
+                    f"Archivo '{file.name}': Demasiado grande. Máximo 10MB."
+                )
+        
+        return value
+    
+    def validate_profile_id(self, value):
+        """Valida que el perfil exista si se proporciona"""
+        if value:
+            from apps.profiles.models import Profile
+            try:
+                Profile.objects.get(pk=value)
+            except Profile.DoesNotExist:
+                raise serializers.ValidationError("El perfil especificado no existe")
+        return value
+
+
+class BulkCVUploadResultSerializer(serializers.Serializer):
+    """Serializer para el resultado de la carga masiva"""
+    
+    total_processed = serializers.IntegerField()
+    successful = serializers.IntegerField()
+    failed = serializers.IntegerField()
+    created = serializers.IntegerField()
+    updated = serializers.IntegerField()
+    total_time = serializers.FloatField()
+    
+    successful_details = serializers.ListField(
+        child=serializers.DictField()
+    )
+    failed_details = serializers.ListField(
+        child=serializers.DictField()
+    )

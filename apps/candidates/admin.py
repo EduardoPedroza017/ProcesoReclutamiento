@@ -3,7 +3,11 @@ Configuración del Admin para Candidatos
 """
 from django.contrib import admin
 from django.utils.html import format_html
-from django.urls import reverse
+from django.urls import reverse, path
+from django.shortcuts import render, redirect
+from django.contrib import messages
+import tempfile
+import os
 from .models import (
     Candidate,
     CandidateProfile,
@@ -193,6 +197,129 @@ class CandidateAdmin(admin.ModelAdmin):
         'mark_as_interview',
         'mark_as_rejected',
     ]
+    
+    # ============================================================
+    # 🆕 AGREGAR ESTA SECCIÓN COMPLETA AQUÍ
+    # ============================================================
+    
+    def get_urls(self):
+        """Agregar URL personalizada para carga masiva de CVs"""
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                'bulk-upload-cvs/',
+                self.admin_site.admin_view(self.bulk_upload_cvs_view),
+                name='candidates_candidate_bulk_upload_cvs'
+            ),
+        ]
+        return custom_urls + urls
+    
+    def bulk_upload_cvs_view(self, request):
+        """Vista para carga masiva de CVs con IA"""
+        if request.method == 'POST':
+            files = request.FILES.getlist('cv_files')
+            profile_id = request.POST.get('profile_id')
+            
+            if not files:
+                messages.error(request, '❌ No se seleccionaron archivos')
+                return redirect('.')
+            
+            # Importar la tarea de procesamiento
+            from .tasks import process_single_cv_for_bulk_upload
+            
+            # Procesar archivos
+            successful = 0
+            failed = 0
+            errors = []
+            results = []
+            
+            for cv_file in files:
+                try:
+                    # Validar extensión
+                    if not cv_file.name.lower().endswith(('.pdf', '.docx')):
+                        errors.append(f"❌ {cv_file.name}: Formato no válido (solo PDF/DOCX)")
+                        failed += 1
+                        continue
+                    
+                    # Validar tamaño (máx 10MB)
+                    if cv_file.size > 10 * 1024 * 1024:
+                        errors.append(f"❌ {cv_file.name}: Archivo muy grande (máx 10MB)")
+                        failed += 1
+                        continue
+                    
+                    # Guardar temporalmente
+                    temp_dir = tempfile.mkdtemp()
+                    temp_path = os.path.join(temp_dir, cv_file.name)
+                    
+                    with open(temp_path, 'wb+') as destination:
+                        for chunk in cv_file.chunks():
+                            destination.write(chunk)
+                    
+                    # Procesar con IA
+                    result = process_single_cv_for_bulk_upload(
+                        temp_path,
+                        cv_file.name,
+                        int(profile_id) if profile_id else None,
+                        request.user.id
+                    )
+                    
+                    if result['success']:
+                        successful += 1
+                        candidate_name = result.get('candidate_name', 'Sin nombre')
+                        candidate_email = result.get('candidate_email', '')
+                        results.append(f"✅ {cv_file.name} → {candidate_name} ({candidate_email})")
+                    else:
+                        failed += 1
+                        error_msg = result.get('error', 'Error desconocido')
+                        errors.append(f"❌ {cv_file.name}: {error_msg}")
+                    
+                except Exception as e:
+                    failed += 1
+                    errors.append(f"❌ {cv_file.name}: {str(e)}")
+            
+            # Mostrar resultados
+            if successful > 0:
+                messages.success(
+                    request, 
+                    f'🎉 {successful} CV(s) procesados exitosamente con IA'
+                )
+                for result in results:
+                    messages.success(request, result)
+            
+            if failed > 0:
+                messages.warning(request, f'⚠️ {failed} CV(s) fallaron')
+                for error in errors[:5]:  # Mostrar solo primeros 5 errores
+                    messages.error(request, error)
+                if len(errors) > 5:
+                    messages.error(request, f"... y {len(errors) - 5} errores más")
+            
+            if successful == 0 and failed == 0:
+                messages.info(request, 'ℹ️ No se procesaron archivos')
+            
+            return redirect('..')
+        
+        # GET request - mostrar formulario
+        from apps.profiles.models import Profile
+        profiles = Profile.objects.filter(status='open').order_by('-created_at')[:50]
+        
+        context = {
+            'title': '📤 Carga Masiva de CVs con IA',
+            'opts': self.model._meta,
+            'has_view_permission': self.has_view_permission(request),
+            'site_url': '/',
+            'profiles': profiles,
+        }
+        return render(request, 'admin/candidates/bulk_upload_cvs.html', context)
+    
+    def changelist_view(self, request, extra_context=None):
+        """Agregar botón de carga masiva en la lista"""
+        extra_context = extra_context or {}
+        extra_context['show_bulk_upload_button'] = True
+        return super().changelist_view(request, extra_context)
+    
+    # ============================================================
+    # FIN DE LA SECCIÓN NUEVA
+    # ============================================================
     
     def status_badge(self, obj):
         """Muestra el estado con un badge de color"""

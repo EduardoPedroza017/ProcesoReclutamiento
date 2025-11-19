@@ -276,8 +276,15 @@ class Profile(models.Model):
     
     @property
     def salary_range(self):
-        """Retorna el rango salarial formateado"""
-        return f"${self.salary_min:,.2f} - ${self.salary_max:,.2f} {self.salary_currency}/{self.salary_period}"
+        # Verificar si los campos necesarios tienen valores
+        if self.salary_min is None or self.salary_max is None:
+            return "No especificado"
+        
+        # Si hay valores, formatear normalmente
+        currency = self.salary_currency or ""
+        period = self.salary_period or ""
+        
+        return f"${self.salary_min:,.2f} - ${self.salary_max:,.2f} {currency}/{period}"
     
     @property
     def candidates_count(self):
