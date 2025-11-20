@@ -1,0 +1,15 @@
+{% extends "admin/change_list.html" %}
+
+{% block object-tools-items %}
+    {{ block.super }}
+    
+    {% if show_bulk_upload_button %}
+    <li>
+        <a href="{% url 'admin:candidates_candidate_bulk_upload_cvs' %}" 
+           class="addlink"
+           style="background: #28a745 !important; border-color: #28a745 !important; padding: 10px 15px !important; font-weight: bold;">
+            📤 Carga Masiva de CVs
+        </a>
+    </li>
+    {% endif %}
+{% endblock %}

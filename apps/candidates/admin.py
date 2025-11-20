@@ -14,6 +14,7 @@ from .models import (
     CandidateDocument,
     CandidateStatusHistory,
     CandidateNote,
+    BulkCVUpload,
 )
 
 
@@ -633,3 +634,25 @@ class CandidateNoteAdmin(admin.ModelAdmin):
         if not change:  # Si es nuevo
             obj.created_by = request.user
         super().save_model(request, obj, form, change)
+        
+
+@admin.register(BulkCVUpload)
+class BulkCVUploadAdmin(admin.ModelAdmin):
+    """Admin para carga masiva de CVs en el sidebar"""
+    
+    def changelist_view(self, request, extra_context=None):
+        from django.shortcuts import redirect
+        from django.urls import reverse
+        return redirect(reverse('admin:candidates_candidate_bulk_upload_cvs'))
+    
+    def has_module_permission(self, request):
+        return True
+    
+    def has_add_permission(self, request):
+        return False
+    
+    def has_change_permission(self, request, obj=None):
+        return False
+    
+    def has_delete_permission(self, request, obj=None):
+        return False

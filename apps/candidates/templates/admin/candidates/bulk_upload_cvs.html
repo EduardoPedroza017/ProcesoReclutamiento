@@ -1,0 +1,73 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 20px auto;">
+    <h1>📤 Carga Masiva de CVs con IA</h1>
+    
+    <div style="background: #e7f3ff; padding: 15px; margin: 20px 0; border-left: 4px solid #2196F3;">
+        <strong>ℹ️ Cómo funciona:</strong>
+        <ul style="margin: 10px 0;">
+            <li>Selecciona múltiples CVs (PDF/DOCX)</li>
+            <li>La IA los analizará automáticamente</li>
+            <li>Se crearán los candidatos con toda la información</li>
+        </ul>
+    </div>
+    
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        
+        <div style="margin: 20px 0;">
+            <label for="profile_id" style="font-weight: bold; display: block; margin-bottom: 8px;">
+                Vincular a Perfil (Opcional):
+            </label>
+            <select name="profile_id" id="profile_id" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                <option value="">-- Sin perfil --</option>
+                {% for profile in profiles %}
+                <option value="{{ profile.id }}">
+                    {{ profile.position_title }} - {{ profile.client.company_name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div style="border: 2px dashed #417690; padding: 40px; text-align: center; background: #f8f9fa; margin: 20px 0; border-radius: 8px;">
+            <div style="font-size: 48px; color: #417690; margin-bottom: 10px;">📁</div>
+            <h3>Seleccionar CVs</h3>
+            <input 
+                type="file" 
+                name="cv_files" 
+                multiple 
+                accept=".pdf,.docx"
+                required
+                style="margin: 15px 0; padding: 10px;"
+            >
+            <p style="color: #6c757d; margin-top: 10px;">
+                Formatos: PDF, DOCX | Máximo: 10MB por archivo
+            </p>
+        </div>
+        
+        <div style="background: #fff3cd; padding: 15px; margin: 20px 0; border-left: 4px solid #ffc107;">
+            <strong>⚠️ Importante:</strong>
+            <ul style="margin: 10px 0;">
+                <li>El procesamiento puede tardar varios segundos por CV</li>
+                <li>No cierres esta ventana hasta que termine</li>
+            </ul>
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <button 
+                type="submit" 
+                style="background: #28a745; color: white; padding: 12px 30px; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; font-weight: bold;"
+            >
+                🚀 Procesar CVs con IA
+            </button>
+            <a 
+                href="{% url 'admin:candidates_candidate_changelist' %}" 
+                style="margin-left: 10px; padding: 12px 30px; background: #6c757d; color: white; text-decoration: none; border-radius: 4px; display: inline-block;"
+            >
+                Cancelar
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

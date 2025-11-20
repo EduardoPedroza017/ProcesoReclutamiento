@@ -536,3 +536,10 @@ class CandidateNote(models.Model):
     
     def __str__(self):
         return f"Nota de {self.candidate.full_name} - {self.created_at.strftime('%Y-%m-%d')}"
+    
+class BulkCVUpload(models.Model):
+    """Modelo proxy para carga masiva de CVs - solo para el admin"""
+    class Meta:
+        managed = False  # No crear tabla en BD
+        verbose_name = 'Carga Masiva de CVs'
+        verbose_name_plural = 'Carga Masiva de CVs'
