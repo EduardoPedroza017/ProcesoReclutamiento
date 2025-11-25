@@ -17,8 +17,20 @@ class ClaudeService:
     """
     
     def __init__(self):
-        self.client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-        self.model = "claude-3-sonnet-20240229"
+        # Verificar que tengamos la API key
+        api_key = settings.ANTHROPIC_API_KEY
+        if not api_key or api_key == '':
+            raise ValueError("ANTHROPIC_API_KEY no está configurada en settings")
+        
+        # Inicializar sin parámetros problemáticos
+        import os
+        os.environ['ANTHROPIC_API_KEY'] = api_key
+        
+        # Crear cliente básico sin opciones extra
+        from anthropic import Anthropic
+        self.client = Anthropic()
+        
+        self.model = "claude-sonnet-4-5-20250929"
         self.max_tokens = 4096
     
     def _make_api_call(self, prompt: str, system_prompt: str = None) -> Dict[str, Any]:
@@ -55,25 +67,20 @@ class ClaudeService:
                 "error": None
             }
             
-        except APIError as e:
-            execution_time = time.time() - start_time
-            return {
-                "response": "",
-                "tokens_input": 0,
-                "tokens_output": 0,
-                "execution_time": execution_time,
-                "success": False,
-                "error": str(e)
-            }
         except Exception as e:
             execution_time = time.time() - start_time
+            error_msg = str(e)
+            
+            # Log más detallado del error
+            print(f"❌ Error en llamada a Claude API: {error_msg}")
+            
             return {
                 "response": "",
                 "tokens_input": 0,
                 "tokens_output": 0,
                 "execution_time": execution_time,
                 "success": False,
-                "error": f"Error inesperado: {str(e)}"
+                "error": error_msg
             }
 
 
@@ -177,8 +184,22 @@ IMPORTANTE: Responde ÚNICAMENTE con el JSON válido, sin texto adicional antes 
         
         if result["success"]:
             try:
-                # Parsear el JSON de la respuesta
-                parsed_data = json.loads(result["response"])
+                # Limpiar la respuesta de markdown antes de parsear JSON
+                response_text = result["response"].strip()
+                
+                # Remover bloques de código markdown si existen
+                if response_text.startswith("```json"):
+                    response_text = response_text[7:]  # Quitar ```json
+                elif response_text.startswith("```"):
+                    response_text = response_text[3:]  # Quitar ```
+                
+                if response_text.endswith("```"):
+                    response_text = response_text[:-3]  # Quitar ``` del final
+                
+                response_text = response_text.strip()
+                
+                # Parsear JSON limpio
+                parsed_data = json.loads(response_text)
                 
                 return {
                     "parsed_data": parsed_data,
