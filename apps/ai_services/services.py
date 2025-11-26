@@ -298,8 +298,23 @@ IMPORTANTE: Responde ÚNICAMENTE con el JSON válido, sin texto adicional."""
         
         if result["success"]:
             try:
-                matching_data = json.loads(result["response"])
+                # Limpiar la respuesta de markdown antes de parsear JSON
+                response_text = result["response"].strip()
                 
+                # Remover bloques de código markdown si existen
+                if response_text.startswith("```json"):
+                    response_text = response_text[7:]  # Quitar ```json
+                elif response_text.startswith("```"):
+                    response_text = response_text[3:]  # Quitar ```
+                
+                if response_text.endswith("```"):
+                    response_text = response_text[:-3]  # Quitar ``` del final
+                
+                response_text = response_text.strip()
+                
+                # Parsear JSON limpio
+                matching_data = json.loads(response_text)
+                        
                 return {
                     "overall_score": matching_data.get("puntuacion_general", 0),
                     "technical_skills_score": matching_data.get("puntuaciones_especificas", {}).get("habilidades_tecnicas", 0),
