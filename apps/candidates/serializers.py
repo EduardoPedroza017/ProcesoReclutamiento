@@ -93,7 +93,7 @@ class CandidateProfileSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     # ← DEBEN ESTAR ESTAS 2 LÍNEAS
     candidate_name = serializers.CharField(source='candidate.full_name', read_only=True)
-    candidate_email = serializers.EmailField(source='candidate.email', read_only=True)
+    candidate_email = serializers.EmailField(source='candidate.email', read_only=True) 
     
     class Meta:
         model = CandidateProfile
