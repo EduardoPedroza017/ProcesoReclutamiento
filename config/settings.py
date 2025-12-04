@@ -170,6 +170,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
     "http://localhost:3001",  # Si lo necesitas
     "http://127.0.0.1:3001",  # Si lo necesitas
+    "http://localhost:3002",      # ← AGREGA ESTA LÍNEA
+    "http://127.0.0.1:3002",
 ]
 
 CORS_ALLOW_CREDENTIALS = True

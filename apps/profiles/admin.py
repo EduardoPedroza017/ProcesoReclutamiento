@@ -428,6 +428,7 @@ class ProfileAdmin(admin.ModelAdmin):
                 ('status', 'priority'),
                 ('service_type', 'number_of_positions'),
                 ('desired_start_date', 'deadline'),
+                'published_platforms',
             )
         }),
         ('Transcripción y Notas', {

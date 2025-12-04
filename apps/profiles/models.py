@@ -244,6 +244,14 @@ class Profile(models.Model):
         blank=True,
         verbose_name='Retroalimentación del Cliente'
     )
+
+    # Plataformas de publicación (solo cuando status = 'in_progress')
+    published_platforms = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name='Plataformas de Publicación',
+        help_text='Lista de plataformas donde se ha publicado el perfil. Solo disponible cuando el estado es "En Proceso"'
+    )
     
     # Metadatos
     created_at = models.DateTimeField(

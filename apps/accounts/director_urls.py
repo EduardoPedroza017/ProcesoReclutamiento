@@ -46,6 +46,40 @@ urlpatterns = [
         director_views.monthly_report,
         name='monthly-report'
     ),
+    # Reporte de perfil individual
+    path(
+        'reports/profile/<int:profile_id>/',
+        director_views.profile_report,
+        name='profile-report'
+    ),
+    
+    # Candidatos de un perfil
+    path(
+        'reports/profile/<int:profile_id>/candidates/',
+        director_views.profile_candidates_report,
+        name='profile-candidates-report'
+    ),
+    
+    # Timeline del perfil
+    path(
+        'reports/profile/<int:profile_id>/timeline/',
+        director_views.profile_timeline_report,
+        name='profile-timeline-report'
+    ),
+    
+    # Reporte completo de candidato
+    path(
+        'reports/candidate/<int:candidate_id>/',
+        director_views.candidate_full_report,
+        name='candidate-full-report'
+    ),
+    
+    # Reporte completo de cliente
+    path(
+        'reports/client/<int:client_id>/',
+        director_views.client_full_report,
+        name='client-full-report'
+    ),
     
     # Acciones pendientes
     path(

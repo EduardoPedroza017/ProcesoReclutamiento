@@ -24,6 +24,7 @@ class ProfileDocumentSerializer(serializers.ModelSerializer):
             'uploaded_by',
             'uploaded_by_name',
             'uploaded_at',
+            'published_platforms',
         ]
         read_only_fields = ['uploaded_by', 'uploaded_at']
     
