@@ -37,7 +37,7 @@ services:
 
   # Django Application
   web:
-    image: eduardopedroza017/proyecto-reclutamiento-v01:v1.4.1
+    image: eduardopedroza017/proyecto-reclutamiento-v01:v1.4.7
     container_name: recruitment_web
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
@@ -55,11 +55,12 @@ services:
 
   # Celery Worker
   celery:
-    image: eduardopedroza017/proyecto-reclutamiento-v01:v1.4.1
+    image: eduardopedroza017/proyecto-reclutamiento-v01:v1.4.7
     container_name: recruitment_celery
     command: celery -A config worker -l info
     volumes:
       - .:/app
+      - media_files:/app/media 
     env_file:
       - .env
     depends_on:
@@ -68,11 +69,12 @@ services:
 
   # Celery Beat (tareas programadas)
   celery-beat:
-    image: eduardopedroza017/proyecto-reclutamiento-v01:v1.4.1
+    image: eduardopedroza017/proyecto-reclutamiento-v01:v1.4.7
     container_name: recruitment_celery_beat
     command: celery -A config beat -l info
     volumes:
       - .:/app
+      - media_files:/app/media  
     env_file:
       - .env
     depends_on:

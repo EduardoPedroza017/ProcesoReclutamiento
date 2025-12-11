@@ -319,7 +319,7 @@ def bulk_upload_cvs_task(
     created_by_id: int = None
 ):
     """
-    Tarea principal para procesar múltiples CVs en paralelo
+    Tarea principal para procesar múltiples CVs secuencialmente
     
     Args:
         cv_files_data: Lista de dicts con {'path': ..., 'filename': ...}
@@ -330,21 +330,26 @@ def bulk_upload_cvs_task(
         Dict con resumen de resultados
     """
     start_time = time.time()
+    results = []
     
-    # Crear grupo de tareas paralelas
-    job = group(
-        process_single_cv_for_bulk_upload.s(
-            cv_data['path'],
-            cv_data['filename'],
-            profile_id,
-            created_by_id
-        )
-        for cv_data in cv_files_data
-    )
-    
-    # Ejecutar en paralelo y esperar resultados
-    result = job.apply_async()
-    results = result.get(timeout=600)  # 10 minutos máximo
+    # Procesar cada CV secuencialmente (sin crear subtareas)
+    for cv_data in cv_files_data:
+        try:
+            # Llamar la función directamente SIN el decorador de tarea
+            result = _process_single_cv_sync(
+                cv_data['path'],
+                cv_data['filename'],
+                profile_id,
+                created_by_id
+            )
+            results.append(result)
+        except Exception as e:
+            results.append({
+                'success': False,
+                'filename': cv_data['filename'],
+                'error': str(e),
+                'candidate_id': None
+            })
     
     # Procesar resultados
     successful = [r for r in results if r['success']]
@@ -363,3 +368,227 @@ def bulk_upload_cvs_task(
         'failed_details': failed,
         'total_time': time.time() - start_time
     }
+
+
+def _process_single_cv_sync(
+    cv_file_path: str,
+    cv_filename: str,
+    profile_id: int = None,
+    created_by_id: int = None
+):
+    """
+    Procesa un solo CV de forma síncrona (función auxiliar, no es tarea Celery)
+    
+    Esta función contiene la misma lógica que process_single_cv_for_bulk_upload
+    pero sin el decorador @shared_task para evitar el error de .get()
+    """
+    start_time = time.time()
+    
+    try:
+        from apps.ai_services.services import CVAnalyzerService, MatchingService
+        from apps.profiles.models import Profile
+        from .models import Candidate, CandidateDocument, CandidateProfile
+        
+        # 1. Extraer texto del CV
+        service = CVAnalyzerService()
+        extracted_text = service.extract_text_from_file(cv_file_path)
+        
+        if not extracted_text or len(extracted_text) < 50:
+            return {
+                'success': False,
+                'filename': cv_filename,
+                'error': 'No se pudo extraer texto suficiente del CV',
+                'candidate_id': None
+            }
+        
+        # 2. Analizar con IA
+        analysis_result = service.analyze_cv(extracted_text)
+        
+        if not analysis_result['success']:
+            return {
+                'success': False,
+                'filename': cv_filename,
+                'error': analysis_result.get('error', 'Error en análisis de IA'),
+                'candidate_id': None
+            }
+        
+        parsed_data = analysis_result['parsed_data']
+        
+        # 3. Validar que tengamos al menos email o nombre
+        email = parsed_data.get('datos_personales', {}).get('email', '').strip()
+        nombre_completo = parsed_data.get('datos_personales', {}).get('nombre_completo', '').strip()
+        
+        if not email and not nombre_completo:
+            return {
+                'success': False,
+                'filename': cv_filename,
+                'error': 'No se pudo extraer email ni nombre del CV',
+                'candidate_id': None
+            }
+        
+        # 4. Buscar o crear candidato
+        candidate = None
+        created = False
+        
+        if email:
+            candidate = Candidate.objects.filter(email__iexact=email).first()
+        
+        if not candidate and nombre_completo:
+            # Intentar buscar por nombre
+            nombres = nombre_completo.split()
+            if len(nombres) >= 2:
+                candidate = Candidate.objects.filter(
+                    first_name__iexact=nombres[0],
+                    last_name__icontains=nombres[-1]
+                ).first()
+        
+        # Obtener datos personales
+        datos = parsed_data.get('datos_personales', {})
+        
+        if not candidate:
+            # Crear nuevo candidato
+            nombres = nombre_completo.split() if nombre_completo else ['Sin', 'Nombre']
+            first_name = nombres[0] if nombres else 'Sin'
+            last_name = ' '.join(nombres[1:]) if len(nombres) > 1 else 'Nombre'
+            
+            candidate = Candidate.objects.create(
+                first_name=first_name,
+                last_name=last_name,
+                email=email or f"sin_email_{timezone.now().timestamp()}@temporal.com",
+                phone=datos.get('telefono', ''),
+                city=datos.get('ciudad', ''),
+                state=datos.get('estado', ''),
+                country=datos.get('pais', 'México'),
+                created_by_id=created_by_id
+            )
+            created = True
+        
+        # 5. Actualizar datos del candidato
+        if datos.get('telefono') and not candidate.phone:
+            candidate.phone = datos.get('telefono')
+        if datos.get('ciudad') and not candidate.city:
+            candidate.city = datos.get('ciudad')
+        if datos.get('linkedin'):
+            candidate.linkedin_url = datos.get('linkedin')
+        
+        # Experiencia
+        experiencia = parsed_data.get('experiencia_laboral', [])
+        if experiencia:
+            ultima = experiencia[0]
+            candidate.current_position = ultima.get('puesto', '')
+            candidate.current_company = ultima.get('empresa', '')
+            
+            # Calcular años de experiencia
+            total_exp = 0
+            for exp in experiencia:
+                duracion = exp.get('duracion', '')
+                if 'año' in duracion.lower():
+                    try:
+                        anos = int(''.join(filter(str.isdigit, duracion.split('año')[0])))
+                        total_exp += anos
+                    except:
+                        pass
+            if total_exp > 0:
+                candidate.years_of_experience = total_exp
+        
+        # Educación
+        educacion = parsed_data.get('educacion', [])
+        if educacion:
+            niveles = {
+                'doctorado': 'doctorate',
+                'maestría': 'masters',
+                'licenciatura': 'bachelors',
+                'ingeniería': 'bachelors',
+                'técnico': 'technical',
+                'preparatoria': 'high_school',
+                'bachillerato': 'high_school',
+            }
+            for edu in educacion:
+                titulo = edu.get('titulo', '').lower()
+                for key, value in niveles.items():
+                    if key in titulo:
+                        candidate.education_level = value
+                        break
+        
+        # Habilidades
+        habilidades = parsed_data.get('habilidades', {})
+        if habilidades:
+            candidate.technical_skills = habilidades.get('tecnicas', [])
+            candidate.soft_skills = habilidades.get('blandas', [])
+            candidate.languages = habilidades.get('idiomas', [])
+        
+        # Guardar perfil IA
+        candidate.ai_parsed_profile = parsed_data
+        candidate.save()
+        
+        # 6. Guardar el CV como documento
+        with open(cv_file_path, 'rb') as f:
+            from django.core.files.base import ContentFile
+            content = f.read()
+            
+            doc = CandidateDocument.objects.create(
+                candidate=candidate,
+                document_type='cv',
+                uploaded_by_id=created_by_id
+            )
+            doc.file.save(cv_filename, ContentFile(content))
+        
+        # 7. Calcular matching si hay perfil
+        matching_score = None
+        if profile_id:
+            try:
+                profile = Profile.objects.get(pk=profile_id)
+                
+                # Crear relación candidato-perfil
+                cp, _ = CandidateProfile.objects.get_or_create(
+                    candidate=candidate,
+                    profile=profile,
+                    defaults={
+                        'status': 'applied',
+                        'applied_date': timezone.now()
+                    }
+                )
+                
+                # Calcular matching con IA
+                matching_service = MatchingService()
+                matching_result = matching_service.calculate_matching(candidate.id, profile_id)
+                
+                if matching_result.get('success'):
+                    matching_score = matching_result.get('overall_score', 0)
+                    cp.matching_score = matching_score
+                    cp.save()
+            except Exception as e:
+                print(f"⚠️ Error calculando matching: {e}")
+        
+        # 8. Limpiar archivo temporal
+        try:
+            if os.path.exists(cv_file_path):
+                os.remove(cv_file_path)
+        except:
+            pass
+        
+        return {
+            'success': True,
+            'filename': cv_filename,
+            'candidate_id': candidate.id,
+            'candidate_name': candidate.full_name,
+            'candidate_email': candidate.email,
+            'created': created,
+            'matching_score': matching_score,
+            'processing_time': time.time() - start_time
+        }
+        
+    except Exception as e:
+        # Limpiar archivo temporal en caso de error
+        try:
+            if os.path.exists(cv_file_path):
+                os.remove(cv_file_path)
+        except:
+            pass
+        
+        return {
+            'success': False,
+            'filename': cv_filename,
+            'error': str(e),
+            'candidate_id': None
+        }

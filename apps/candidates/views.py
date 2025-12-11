@@ -14,6 +14,8 @@ import io
 import os
 import tempfile
 from django.core.files.storage import default_storage
+import os
+from django.conf import settings
 
 from .models import (
     Candidate,
@@ -152,7 +154,8 @@ class CandidateViewSet(viewsets.ModelViewSet):
         total_files = len(files)
         
         # Crear directorio temporal para almacenar los CVs
-        temp_dir = tempfile.mkdtemp()
+        temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp', f'bulk_upload_{timezone.now().timestamp()}')
+        os.makedirs(temp_dir, exist_ok=True)
         cv_files_data = []
         
         try:
