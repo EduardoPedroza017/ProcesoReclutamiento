@@ -124,6 +124,9 @@ class CandidateListSerializer(serializers.ModelSerializer):
     assigned_to_name = serializers.CharField(source='assigned_to.get_full_name', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     active_applications = serializers.IntegerField(read_only=True)
+    latest_application_status = serializers.SerializerMethodField()
+    latest_application_status_display = serializers.SerializerMethodField()
+    candidate_profiles = serializers.SerializerMethodField()
     
     class Meta:
         model = Candidate
@@ -144,8 +147,25 @@ class CandidateListSerializer(serializers.ModelSerializer):
             'assigned_to',
             'assigned_to_name',
             'active_applications',
+            'latest_application_status',
+            'latest_application_status_display',
+            'candidate_profiles',
             'created_at',
         ]
+    
+    def get_latest_application_status(self, obj):
+        """Obtiene el estado de la aplicación más reciente"""
+        latest = obj.candidate_profiles.order_by('-applied_at').first()
+        return latest.status if latest else None
+    
+    def get_latest_application_status_display(self, obj):
+        """Obtiene el nombre display del estado de la aplicación más reciente"""
+        latest = obj.candidate_profiles.order_by('-applied_at').first()
+        return latest.get_status_display() if latest else None
+    
+    def get_candidate_profiles(self, obj):
+        """Obtiene lista de aplicaciones del candidato con solo id y profile"""
+        return [{'profile': app.profile_id} for app in obj.candidate_profiles.all()]
 
 
 class CandidateDetailSerializer(serializers.ModelSerializer):
