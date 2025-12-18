@@ -148,6 +148,24 @@ class EvaluationTemplateViewSet(viewsets.ModelViewSet):
         }
         
         return Response(stats)
+    
+    @action(detail=True, methods=['post'])
+    def generate_share_link(self, request, pk=None):
+        """Generar link público para compartir la evaluación"""
+        import uuid
+        template = self.get_object()
+        
+        # Generar token único
+        share_token = str(uuid.uuid4())
+        
+        # Guardar token en el template
+        template.share_token = share_token
+        template.save()
+        
+        return Response({
+            'share_token': share_token,
+            'public_url': f'/evaluacion-publica/{share_token}/'
+        }, status=status.HTTP_200_OK)
 
 
 class EvaluationQuestionViewSet(viewsets.ModelViewSet):

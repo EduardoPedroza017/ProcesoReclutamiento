@@ -18,9 +18,12 @@ class EvaluationTemplate(models.Model):
     
     CATEGORY_CHOICES = [
         ('technical', 'Técnica'),
+        ('behavioral', 'Conductual'),
+        ('cognitive', 'Cognitiva'),
         ('soft_skills', 'Habilidades Blandas'),
         ('leadership', 'Liderazgo'),
         ('cultural_fit', 'Ajuste Cultural'),
+        ('cultural', 'Cultural Fit'),
         ('language', 'Idiomas'),
         ('other', 'Otro'),
     ]
@@ -66,6 +69,16 @@ class EvaluationTemplate(models.Model):
         _('es plantilla'),
         default=True,
         help_text='Si es una plantilla reutilizable o evaluación única'
+    )
+    
+    # Token para compartir públicamente
+    share_token = models.CharField(
+        _('token de compartir'),
+        max_length=255,
+        null=True,
+        blank=True,
+        unique=True,
+        help_text='Token único para compartir la evaluación públicamente'
     )
     
     # Metadatos
@@ -134,8 +147,11 @@ class EvaluationQuestion(models.Model):
         ('multiple_choice', 'Opción Múltiple'),
         ('true_false', 'Verdadero/Falso'),
         ('short_text', 'Texto Corto'),
+        ('short_answer', 'Respuesta Corta'),
         ('long_text', 'Texto Largo'),
+        ('essay', 'Ensayo'),
         ('scale', 'Escala (1-10)'),
+        ('rating', 'Calificación (1-5)'),
         ('code', 'Código'),
         ('file_upload', 'Subir Archivo'),
     ]

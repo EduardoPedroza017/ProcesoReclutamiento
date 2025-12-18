@@ -12,6 +12,7 @@ from .views import (
     EvaluationAnswerViewSet,
     EvaluationCommentViewSet
 )
+from .public_views import PublicEvaluationView, PublicEvaluationSubmitView
 
 # Crear router para registrar los viewsets
 router = DefaultRouter()
@@ -27,6 +28,9 @@ app_name = 'evaluations'
 
 urlpatterns = [
     path('', include(router.urls)),
+    # Endpoints públicos (sin autenticación)
+    path('public/<str:token>/', PublicEvaluationView.as_view(), name='public-evaluation'),
+    path('public/<str:token>/submit/', PublicEvaluationSubmitView.as_view(), name='public-evaluation-submit'),
 ]
 
 """
