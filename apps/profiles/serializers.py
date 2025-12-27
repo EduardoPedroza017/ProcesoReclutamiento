@@ -24,7 +24,6 @@ class ProfileDocumentSerializer(serializers.ModelSerializer):
             'uploaded_by',
             'uploaded_by_name',
             'uploaded_at',
-            'published_platforms',
         ]
         read_only_fields = ['uploaded_by', 'uploaded_at']
     
@@ -172,6 +171,7 @@ class ProfileCreateUpdateSerializer(serializers.ModelSerializer):
             'meeting_transcription',
             'internal_notes',
             'client_feedback',
+            'published_platforms',
         ]
     
     def validate_salary_min(self, value):

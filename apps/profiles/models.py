@@ -388,6 +388,11 @@ class ProfileDocument(models.Model):
         auto_now_add=True,
         verbose_name='Fecha de Subida'
     )
+    published_platforms = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Plataformas donde se publicará: ['LinkedIn', 'Indeed', 'OCC']"
+    )
     
     class Meta:
         verbose_name = 'Documento del Perfil'
