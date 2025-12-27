@@ -107,17 +107,19 @@ def director_dashboard(request):
     total_clients = Client.objects.count()
     
     # Clientes activos (con perfiles activos)
+    # Clientes activos (con perfiles activos)
+    # Clientes activos (con perfiles activos)
     active_clients = Client.objects.filter(
         profiles__status__in=[
             Profile.STATUS_IN_PROGRESS,
-            Profile.STATUS_REVIEW,
             Profile.STATUS_APPROVED,
-            Profile.STATUS_PUBLISHED,
-            Profile.STATUS_CANDIDATES_REVIEWING,
-            Profile.STATUS_IN_INTERVIEWS,
+            Profile.STATUS_CANDIDATES_FOUND,
+            Profile.STATUS_IN_EVALUATION,
+            Profile.STATUS_IN_INTERVIEW,
+            Profile.STATUS_FINALISTS,
         ]
     ).distinct().count()
-    
+        
     # Nuevos clientes este mes
     new_clients_this_month = Client.objects.filter(
         created_at__gte=thirty_days_ago
@@ -130,20 +132,20 @@ def director_dashboard(request):
     total_evaluations = CandidateEvaluation.objects.count()
     
     pending_evaluations = CandidateEvaluation.objects.filter(
-        status=CandidateEvaluation.STATUS_PENDING
+        status='pending'
     ).count()
-    
+        
     in_progress_evaluations = CandidateEvaluation.objects.filter(
-        status=CandidateEvaluation.STATUS_IN_PROGRESS
+        status='in_progress'
     ).count()
     
     completed_evaluations = CandidateEvaluation.objects.filter(
-        status=CandidateEvaluation.STATUS_COMPLETED
+        status='completed'
     ).count()
     
     # Promedio de puntuación de evaluaciones
     avg_evaluation_score = CandidateEvaluation.objects.filter(
-        status=CandidateEvaluation.STATUS_COMPLETED
+        status='completed'
     ).aggregate(avg=Avg('final_score'))['avg'] or 0
     
     # ============================================
@@ -176,13 +178,13 @@ def director_dashboard(request):
     # ============================================
     
     total_supervisors = User.objects.filter(
-        role=User.ROLE_SUPERVISOR,
+        role=User.SUPERVISOR,
         is_active=True
     ).count()
     
     # Perfiles asignados por supervisor
     profiles_per_supervisor = Profile.objects.filter(
-        assigned_to__role=User.ROLE_SUPERVISOR
+        assigned_to__role=User.SUPERVISOR
     ).values('assigned_to__first_name', 'assigned_to__last_name').annotate(
         count=Count('id')
     )[:5]  # Top 5
@@ -197,15 +199,16 @@ def director_dashboard(request):
     ).count()
     
     # Perfiles próximos a vencer
+    # Perfiles próximos a vencer
     profiles_near_deadline = Profile.objects.filter(
         deadline__lte=today + timedelta(days=7),
         deadline__gte=today,
-        status__in=[Profile.STATUS_IN_PROGRESS, Profile.STATUS_REVIEW]
+        status__in=[Profile.STATUS_IN_PROGRESS, Profile.STATUS_APPROVED]
     ).count()
     
     # Evaluaciones pendientes de revisión
     evaluations_pending_review = CandidateEvaluation.objects.filter(
-        status=CandidateEvaluation.STATUS_PENDING_REVIEW
+        status='reviewed'  # O 'completed' según tu lógica
     ).count()
     
     # ============================================
@@ -237,16 +240,13 @@ def director_dashboard(request):
     pipeline = {
         'total_positions': total_profiles,
         'in_sourcing': Profile.objects.filter(
-            status__in=[Profile.STATUS_IN_PROGRESS, Profile.STATUS_PUBLISHED]
+            status__in=[Profile.STATUS_IN_PROGRESS, Profile.STATUS_APPROVED]
         ).count(),
         'in_screening': Candidate.objects.filter(
             status=Candidate.STATUS_SCREENING
         ).count(),
         'in_evaluation': CandidateEvaluation.objects.filter(
-            status__in=[
-                CandidateEvaluation.STATUS_IN_PROGRESS,
-                CandidateEvaluation.STATUS_PENDING_REVIEW
-            ]
+            status__in=['in_progress', 'completed']
         ).count(),
         'in_interview': in_interview,
         'with_offer': with_offer,
@@ -467,7 +467,7 @@ def team_performance(request):
     GET /api/director/team/performance/
     """
     supervisors = User.objects.filter(
-        role=User.ROLE_SUPERVISOR,
+        role=User.SUPERVISOR,
         is_active=True
     )
     
@@ -496,9 +496,10 @@ def team_performance(request):
         ).count()
         
         # Evaluaciones completadas
+        # Evaluaciones completadas
         evaluations_reviewed = CandidateEvaluation.objects.filter(
             reviewed_by=supervisor,
-            status=CandidateEvaluation.STATUS_COMPLETED
+            status='completed'
         ).count()
         
         # Tiempo promedio de cierre
@@ -737,7 +738,7 @@ def monthly_report(request):
         # ============================================
         try:
             evaluations_completed = CandidateEvaluation.objects.filter(
-                status=CandidateEvaluation.STATUS_COMPLETED,
+                status='completed',
                 completed_at__gte=start_date,
                 completed_at__lt=end_date
             ).count()
@@ -808,7 +809,7 @@ def monthly_report(request):
             top_supervisors = Profile.objects.filter(
                 created_at__gte=start_date,
                 created_at__lt=end_date,
-                assigned_to__role=User.ROLE_SUPERVISOR
+                assigned_to__role=User.SUPERVISOR
             ).values(
                 'assigned_to__first_name',
                 'assigned_to__last_name'
@@ -903,9 +904,9 @@ def pending_actions(request):
         'status'
     )[:10]
     
-    # Evaluaciones pendientes de revisión
+    # Evaluaciones pendientes de revisión (completadas pero no revisadas aún)
     evaluations_pending_review = CandidateEvaluation.objects.filter(
-        status=CandidateEvaluation.STATUS_PENDING_REVIEW
+        status='completed'
     ).select_related('candidate', 'template').values(
         'id',
         'candidate__first_name',
@@ -965,13 +966,15 @@ def recruitment_funnel(request):
     total_profiles = Profile.objects.count()
     
     # Etapa 2: Perfiles aprobados
+    # Etapa 2: Perfiles aprobados
     approved_profiles = Profile.objects.filter(
         status__in=[
             Profile.STATUS_APPROVED,
-            Profile.STATUS_PUBLISHED,
             Profile.STATUS_IN_PROGRESS,
-            Profile.STATUS_CANDIDATES_REVIEWING,
-            Profile.STATUS_IN_INTERVIEWS,
+            Profile.STATUS_CANDIDATES_FOUND,
+            Profile.STATUS_IN_EVALUATION,
+            Profile.STATUS_IN_INTERVIEW,
+            Profile.STATUS_FINALISTS,
             Profile.STATUS_COMPLETED
         ]
     ).count()
@@ -987,11 +990,9 @@ def recruitment_funnel(request):
     ).count()
     
     # Etapa 5: En evaluación
+    # Etapa 5: En evaluación
     in_evaluation = CandidateEvaluation.objects.filter(
-        status__in=[
-            CandidateEvaluation.STATUS_IN_PROGRESS,
-            CandidateEvaluation.STATUS_PENDING_REVIEW
-        ]
+        status__in=['in_progress', 'completed']
     ).count()
     
     # Etapa 6: En entrevistas

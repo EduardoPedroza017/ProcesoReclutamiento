@@ -290,13 +290,12 @@ class ProfileViewSet(viewsets.ModelViewSet):
         
         Retorna:
         - Total de perfiles
-        - Perfiles por estado
-        - Perfiles por prioridad
-        - Perfiles por tipo de servicio
-        - Perfiles urgentes
-        - Perfiles aprobados
-        - Perfiles completados este mes
+        - Perfiles por estado, prioridad, servicio, modalidad
+        - Promedios y métricas
+        - Top clientes
         """
+        from django.db.models import Avg, Count
+        
         queryset = self.get_queryset()
         
         # Total de perfiles
@@ -334,11 +333,50 @@ class ProfileViewSet(viewsets.ModelViewSet):
                 'display': service_name
             }
         
+        # ✅ NUEVO: Por modalidad
+        by_modality = {
+            'Presencial': queryset.filter(is_remote=False, is_hybrid=False).count(),
+            'Remoto': queryset.filter(is_remote=True).count(),
+            'Híbrido': queryset.filter(is_hybrid=True).count(),
+        }
+        
+        # ✅ NUEVO: Promedio de posiciones por perfil
+        avg_positions = queryset.aggregate(
+            avg=Avg('number_of_positions')
+        )['avg'] or 0
+        
+        # ✅ NUEVO: Rango salarial promedio
+        avg_salary = queryset.aggregate(
+            avg_min=Avg('salary_min'),
+            avg_max=Avg('salary_max')
+        )
+        avg_salary_range = {
+            'min': avg_salary['avg_min'] or 0,
+            'max': avg_salary['avg_max'] or 0,
+            'currency': 'MXN'
+        }
+        
         # Perfiles urgentes
         urgent_profiles = queryset.filter(priority='urgent').count()
         
         # Perfiles aprobados
         approved_profiles = queryset.filter(client_approved=True).count()
+        
+        # ✅ NUEVO: Más métricas
+        pending_approval = queryset.filter(status=Profile.STATUS_PENDING).count()
+        active_profiles = queryset.filter(status=Profile.STATUS_IN_PROGRESS).count()
+        completed_profiles = queryset.filter(status=Profile.STATUS_COMPLETED).count()
+        
+        # ✅ NUEVO: Perfiles cerca de deadline (próximos 7 días)
+        from datetime import timedelta
+        today = timezone.now().date()
+        near_deadline_date = today + timedelta(days=7)
+        near_deadline = queryset.filter(
+            deadline__lte=near_deadline_date,
+            deadline__gte=today
+        ).exclude(
+            status__in=[Profile.STATUS_COMPLETED, Profile.STATUS_CANCELLED]
+        ).count()
         
         # Completados este mes
         now = timezone.now()
@@ -348,14 +386,38 @@ class ProfileViewSet(viewsets.ModelViewSet):
             completed_at__gte=start_of_month
         ).count()
         
+        # ✅ NUEVO: Top 5 clientes con más perfiles
+        top_clients_data = queryset.values(
+            'client__id', 'client__company_name'
+        ).annotate(
+            profile_count=Count('id')
+        ).order_by('-profile_count')[:5]
+        
+        top_clients = [
+            {
+                'client_id': item['client__id'],
+                'client_name': item['client__company_name'],
+                'profile_count': item['profile_count']
+            }
+            for item in top_clients_data
+        ]
+        
         stats_data = {
             'total_profiles': total_profiles,
             'by_status': by_status,
             'by_priority': by_priority,
             'by_service_type': by_service_type,
+            'by_modality': by_modality,
+            'avg_positions_per_profile': round(avg_positions, 1),
+            'avg_salary_range': avg_salary_range,
             'urgent_profiles': urgent_profiles,
             'approved_profiles': approved_profiles,
+            'pending_approval': pending_approval,
+            'near_deadline': near_deadline,
+            'active_profiles': active_profiles,
+            'completed_profiles': completed_profiles,
             'completed_this_month': completed_this_month,
+            'top_clients': top_clients,
         }
         
         serializer = ProfileStatsSerializer(stats_data)
